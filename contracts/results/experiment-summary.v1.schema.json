@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mesh-performance.local/contracts/results/experiment-summary.v1.schema.json",
+  "title": "Experiment Summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "profile", "scenario", "status", "window", "sampleCount", "metrics", "resources", "artifacts", "invalidatingFactors"],
+  "properties": {
+    "runId": { "type": "string", "minLength": 1 },
+    "profile": { "enum": ["NO_MESH", "SIDECAR", "AMBIENT", "WAYPOINT"] },
+    "scenario": { "enum": ["SYNC_CHAIN", "FAN_OUT", "ASYNC_PIPELINE", "PAYLOAD", "MIXED_RESOURCE"] },
+    "status": { "enum": ["COMPLETED", "FAILED", "INVALID"] },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "sampleCount": { "type": "integer", "minimum": 0 },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["throughputRps", "errorRate", "latencyMs"],
+      "properties": {
+        "throughputRps": { "type": ["number", "null"], "minimum": 0 },
+        "errorRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "latencyMs": { "$ref": "#/$defs/percentiles" },
+        "partialRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "kafkaLagMax": { "type": ["number", "null"], "minimum": 0 },
+        "backlogDrainSeconds": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["application", "sidecar", "ztunnel", "waypoint", "node"],
+      "properties": {
+        "application": { "$ref": "#/$defs/resourceUsage" },
+        "sidecar": { "anyOf": [{ "$ref": "#/$defs/resourceUsage" }, { "type": "null" }] },
+        "ztunnel": { "anyOf": [{ "$ref": "#/$defs/resourceUsage" }, { "type": "null" }] },
+        "waypoint": { "anyOf": [{ "$ref": "#/$defs/resourceUsage" }, { "type": "null" }] },
+        "node": { "$ref": "#/$defs/resourceUsage" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "raw", "queries"],
+      "properties": {
+        "manifest": { "type": "string", "format": "uri-reference" },
+        "raw": { "type": "string", "format": "uri-reference" },
+        "queries": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "invalidatingFactors": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "percentiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p50", "p95", "p99"],
+      "properties": {
+        "p50": { "type": ["number", "null"], "minimum": 0 },
+        "p95": { "type": ["number", "null"], "minimum": 0 },
+        "p99": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "resourceUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpuCoreSeconds", "cpuPeakCores", "memoryPeakBytes", "networkRxBytes", "networkTxBytes"],
+      "properties": {
+        "cpuCoreSeconds": { "type": ["number", "null"], "minimum": 0 },
+        "cpuPeakCores": { "type": ["number", "null"], "minimum": 0 },
+        "memoryPeakBytes": { "type": ["number", "null"], "minimum": 0 },
+        "networkRxBytes": { "type": ["number", "null"], "minimum": 0 },
+        "networkTxBytes": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

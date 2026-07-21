@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mesh-performance.local/contracts/events/benchmark-task.v1.schema.json",
+  "title": "benchmark.task.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "experimentRunId", "createdAt", "task"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "experimentRunId": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idempotencyKey", "processingMillis", "payloadBytes"],
+      "properties": {
+        "idempotencyKey": { "type": "string", "minLength": 1 },
+        "processingMillis": { "type": "integer", "minimum": 0, "maximum": 60000 },
+        "payloadBytes": { "type": "integer", "minimum": 0, "maximum": 10485760 },
+        "seed": { "type": "integer" }
+      }
+    }
+  }
+}

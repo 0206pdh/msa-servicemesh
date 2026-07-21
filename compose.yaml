@@ -1,0 +1,59 @@
+name: mesh-performance-lab
+
+services:
+  benchmark-gateway:
+    build: services/benchmark-gateway
+    environment:
+      SERVER_PORT: 8080
+      ORCHESTRATOR_BASE_URL: http://orchestrator-service:8080
+    ports: ["8080:8080"]
+    depends_on:
+      orchestrator-service:
+        condition: service_healthy
+    healthcheck: &java-health
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  orchestrator-service:
+    build: services/orchestrator-service
+    environment:
+      SERVER_PORT: 8080
+      WORKLOAD_BASE_URL: http://workload-service:8080
+    ports: ["8081:8080"]
+    healthcheck: *java-health
+
+  workload-service:
+    build: services/workload-service
+    environment:
+      SERVER_PORT: 8080
+      WORKLOAD_ROLE: target-a
+    ports: ["8082:8080"]
+    healthcheck: *java-health
+
+  producer-service:
+    build: services/producer-service
+    environment:
+      SERVER_PORT: 8080
+    ports: ["8083:8080"]
+    healthcheck: *java-health
+
+  worker-service:
+    build: services/worker-service
+    environment:
+      SERVER_PORT: 8080
+    ports: ["8084:8080"]
+    healthcheck: *java-health
+
+  web:
+    build: apps/web
+    ports: ["3000:80"]
+    depends_on:
+      benchmark-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

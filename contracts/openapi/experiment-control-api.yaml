@@ -1,0 +1,209 @@
+openapi: 3.1.0
+info:
+  title: Mesh Performance Lab Control Plane API
+  version: 1.0.0
+  description: Experiment lifecycle API outside the measured request path.
+  license: { name: UNLICENSED, identifier: LicenseRef-Proprietary }
+servers:
+  - url: /control/v1
+security:
+  - bearerAuth: []
+paths:
+  /runs:
+    post:
+      operationId: createRun
+      summary: Create an immutable planned run
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateRunRequest' } } }
+      responses:
+        '201':
+          description: Run created
+          content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      operationId: listRuns
+      summary: List run metadata
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/RunStatus' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Runs
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Run' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /runs/{runId}:
+    get:
+      operationId: getRun
+      summary: Read immutable config and current state
+      parameters: [{ $ref: '#/components/parameters/RunId' }]
+      responses:
+        '200':
+          description: Run
+          content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /runs/{runId}/start:
+    post:
+      operationId: startRun
+      summary: Start warm-up and measurement
+      parameters: [{ $ref: '#/components/parameters/RunId' }]
+      responses:
+        '202':
+          description: Start accepted
+          content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /runs/{runId}/finish:
+    post:
+      operationId: finishRun
+      summary: Stop load, collect artifacts and clean up
+      parameters: [{ $ref: '#/components/parameters/RunId' }]
+      responses:
+        '202':
+          description: Collection accepted
+          content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /runs/{runId}/invalidate:
+    post:
+      operationId: invalidateRun
+      summary: Mark a run invalid without deleting evidence
+      parameters: [{ $ref: '#/components/parameters/RunId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties: { reason: { type: string, minLength: 1, maxLength: 500 } }
+      responses:
+        '200':
+          description: Invalidated run
+          content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /runs/{runId}/result:
+    get:
+      operationId: getRunResult
+      summary: Read the derived summary and artifact locations
+      parameters: [{ $ref: '#/components/parameters/RunId' }]
+      responses:
+        '200':
+          description: Result reference
+          content: { application/json: { schema: { $ref: '#/components/schemas/ResultReference' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /runs/{runId}/faults/{target}:
+    put:
+      operationId: armFault
+      summary: Arm a bounded fault for this run
+      parameters: [{ $ref: '#/components/parameters/RunId' }, { $ref: '#/components/parameters/Target' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/FaultSpec' } } }
+      responses:
+        '200':
+          description: Armed fault
+          content: { application/json: { schema: { $ref: '#/components/schemas/FaultState' } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      operationId: disarmFault
+      summary: Disarm and clean up a run fault
+      parameters: [{ $ref: '#/components/parameters/RunId' }, { $ref: '#/components/parameters/Target' }]
+      responses:
+        '204': { description: Fault disarmed }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$' }
+    Target:
+      name: target
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$' }
+  responses:
+    BadRequest: { description: Invalid experiment specification }
+    Conflict: { description: Invalid lifecycle transition or active conflicting fault }
+    NotFound:
+      description: Run, result or fault not found
+    Unauthorized:
+      description: Missing or invalid control-plane credentials
+  schemas:
+    MeshProfile: { enum: [NO_MESH, SIDECAR, AMBIENT, WAYPOINT] }
+    Scenario: { enum: [SYNC_CHAIN, FAN_OUT, ASYNC_PIPELINE, PAYLOAD, MIXED_RESOURCE] }
+    RunStatus: { enum: [PLANNED, WARMING_UP, RUNNING, COLLECTING, COMPLETED, FAILED, INVALID] }
+    LoadProfile:
+      type: object
+      additionalProperties: false
+      required: [executor, targetRps, warmupSeconds, durationSeconds, repetitions]
+      properties:
+        executor: { enum: [CONSTANT_ARRIVAL_RATE, RAMPING_ARRIVAL_RATE] }
+        targetRps: { type: number, exclusiveMinimum: 0 }
+        warmupSeconds: { type: integer, minimum: 0, maximum: 3600 }
+        durationSeconds: { type: integer, minimum: 1, maximum: 86400 }
+        repetitions: { type: integer, minimum: 1, maximum: 30 }
+    CreateRunRequest:
+      type: object
+      additionalProperties: false
+      required: [runId, profile, scenario, seed, workloadConfig, loadProfile]
+      properties:
+        runId: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$' }
+        profile: { $ref: '#/components/schemas/MeshProfile' }
+        scenario: { $ref: '#/components/schemas/Scenario' }
+        seed: { type: integer, format: int64 }
+        workloadConfig: { type: object, additionalProperties: true }
+        loadProfile: { $ref: '#/components/schemas/LoadProfile' }
+        labels:
+          type: object
+          maxProperties: 20
+          additionalProperties: { type: string, maxLength: 100 }
+    Run:
+      type: object
+      additionalProperties: false
+      required: [runId, profile, scenario, seed, configFingerprint, status, createdAt]
+      properties:
+        runId: { type: string }
+        profile: { $ref: '#/components/schemas/MeshProfile' }
+        scenario: { $ref: '#/components/schemas/Scenario' }
+        seed: { type: integer, format: int64 }
+        configFingerprint: { type: string }
+        status: { $ref: '#/components/schemas/RunStatus' }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        invalidatingFactors: { type: array, items: { type: string } }
+    FaultSpec:
+      type: object
+      additionalProperties: false
+      required: [type, startOffsetSeconds, durationSeconds, intensity, seed]
+      properties:
+        type: { enum: [DELAY, HTTP_ERROR, CONNECTION_RESET, POD_KILL, WORKER_STOP] }
+        startOffsetSeconds: { type: integer, minimum: 0, maximum: 86400 }
+        durationSeconds: { type: integer, minimum: 1, maximum: 3600 }
+        intensity: { type: number, exclusiveMinimum: 0, maximum: 1 }
+        delayMs: { type: integer, minimum: 0, maximum: 60000 }
+        seed: { type: integer, format: int64 }
+    FaultState:
+      type: object
+      additionalProperties: false
+      required: [runId, target, state, spec]
+      properties:
+        runId: { type: string }
+        target: { type: string }
+        state: { enum: [ARMED, ACTIVE, DISARMED, CLEANUP_FAILED] }
+        spec: { $ref: '#/components/schemas/FaultSpec' }
+    ResultReference:
+      type: object
+      additionalProperties: false
+      required: [runId, status, manifestUri, summaryUri, rawArtifactUri]
+      properties:
+        runId: { type: string }
+        status: { $ref: '#/components/schemas/RunStatus' }
+        manifestUri: { type: string, format: uri-reference }
+        summaryUri: { type: string, format: uri-reference }
+        rawArtifactUri: { type: string, format: uri-reference }

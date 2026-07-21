@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mesh-performance.local/contracts/results/run-manifest.v1.schema.json",
+  "title": "Experiment Run Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runId", "createdAt", "profile", "scenario", "seed", "source", "platform", "workload", "load", "telemetry", "configFingerprint"],
+  "properties": {
+    "runId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "profile": { "enum": ["NO_MESH", "SIDECAR", "AMBIENT", "WAYPOINT"] },
+    "scenario": { "enum": ["SYNC_CHAIN", "FAN_OUT", "ASYNC_PIPELINE", "PAYLOAD", "MIXED_RESOURCE"] },
+    "seed": { "type": "integer" },
+    "configFingerprint": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": "string", "minLength": 1 },
+        "dirty": { "type": "boolean" },
+        "repository": { "type": ["string", "null"] }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kubernetesVersion", "nodeInventory", "timeSynchronized", "componentVersions"],
+      "properties": {
+        "kubernetesVersion": { "type": "string" },
+        "nodeInventory": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": true } },
+        "timeSynchronized": { "type": "boolean" },
+        "componentVersions": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config", "images", "placement", "resources", "jvm"],
+      "properties": {
+        "config": { "type": "object", "additionalProperties": true },
+        "images": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^.+@sha256:[a-f0-9]{64}$" } },
+        "placement": { "type": "object", "additionalProperties": true },
+        "resources": { "type": "object", "additionalProperties": true },
+        "jvm": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "load": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "toolVersion", "executor", "targetRps", "warmupSeconds", "durationSeconds", "repetition"],
+      "properties": {
+        "tool": { "const": "k6" },
+        "toolVersion": { "type": "string" },
+        "executor": { "type": "string" },
+        "targetRps": { "type": "number", "exclusiveMinimum": 0 },
+        "warmupSeconds": { "type": "integer", "minimum": 0 },
+        "durationSeconds": { "type": "integer", "minimum": 1 },
+        "repetition": { "type": "integer", "minimum": 1 },
+        "faultSchedule": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampling", "cardinalityPolicy", "queries"],
+      "properties": {
+        "sampling": { "type": "object", "additionalProperties": true },
+        "cardinalityPolicy": { "type": "string" },
+        "queries": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  }
+}

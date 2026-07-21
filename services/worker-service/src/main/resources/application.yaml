@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: worker-service
+server:
+  port: ${SERVER_PORT:8084}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
