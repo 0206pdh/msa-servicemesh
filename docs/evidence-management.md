@@ -17,6 +17,13 @@ Question
 
 중간 링크가 없는 결론은 validated로 표시하지 않는다.
 
+## 진행 체크포인트
+
+- Phase 상태의 단일 기준은 [현재 작업 상태](CURRENT.md)다.
+- 진입/종료 Gate는 [전체 Phase 체크리스트](checkpoints/phase-checklists.md)에서 관리한다.
+- 의미 있는 작업 묶음은 [체크포인트 템플릿](checkpoints/checkpoint-template.md)으로 기록한다.
+- 체크포인트는 진행 기억과 재개를 위한 기록이고, Evidence는 주장 검증을 위한 근거다. 둘을 서로 대체하지 않는다.
+
 ## 상태
 
 - planned: 질문과 방법만 존재

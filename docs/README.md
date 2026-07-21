@@ -8,6 +8,8 @@
 6. [Workload 개발 Phase](phases/application-development.md)
 7. [API와 데이터 계약](application/api-and-data.md)
 8. [계약 인덱스](../contracts/README.md)
+9. [현재 작업 상태](CURRENT.md)
+10. [체크포인트 운영](checkpoints/README.md)
 7. [인프라](infrastructure/README.md)
 8. [실험 계획](experiments/README.md)
 9. [Evidence](evidence-management.md)

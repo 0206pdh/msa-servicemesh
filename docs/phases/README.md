@@ -2,6 +2,8 @@
 
 각 Phase는 다음 단계의 입력이 되는 검증 가능한 산출물을 만든다. 일정이 아니라 Exit criteria로 종료한다.
 
+진행 상태는 [현재 체크포인트](../CURRENT.md)와 [전체 Phase 체크리스트](../checkpoints/phase-checklists.md)에서 관리한다. 모든 Phase는 시작·중간·종료 시 [체크포인트 템플릿](../checkpoints/checkpoint-template.md)을 사용한다.
+
 | Phase | 목표 | 핵심 산출물 |
 |---:|---|---|
 | 0 | 질문·공정성·Workload·결과 계약 | 문서, ADR, schema |
