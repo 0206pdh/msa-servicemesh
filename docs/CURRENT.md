@@ -7,7 +7,7 @@
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 4 — No Mesh baseline 준비
 - Infrastructure Step: Phase 3 exit Gate 완료
-- Status: phase-4-capacity-discovery
+- Status: phase-4-canonical-baseline-measurement
 - Last updated: 2026-07-23
 
 ## 완료된 기준점
@@ -55,18 +55,20 @@
 - [x] Phase 2/3 Evidence와 exit Gate 완료
 - [x] Phase 4 capacity 기반 부하와 10~15회 통계 정밀도 정책
 - [x] bootstrap CI 집계와 자동 정지 판정 구현
+- [x] canonical SYNC_CHAIN usable capacity `C*` 28 RPS 승인
+- [x] canonical 절대 부하 low/nominal/high/near-saturation 3/8/17/22 RPS 확정
+- [x] Tempo OOM 복구: ballast 128 MiB, memory limit 1536 MiB, trace round trip 통과
 
 ## 다음 작업
 
-1. SYNC_CHAIN canonical condition을 10 RPS부터 2배씩 올려 `C*`를 탐색한다.
-2. 최초 실패점과 마지막 통과점 사이를 최대 4회 이분 탐색한다.
-3. 승인된 `C*`의 10/30/60/80% 절대 RPS를 계산한다.
+1. SYNC_CHAIN canonical condition을 3/8/17/22 RPS에서 seeded randomized block으로 측정한다.
+2. 조건별 유효 run을 최소 10회 수집하고 bootstrap 95% CI 정밀도 Gate를 평가한다.
+3. 최대 15회에도 정밀도 기준 미달이면 `INCONCLUSIVE_MAX_RUNS`로 기록한다.
 
 ## 현재 한계
 
-- 성능 측정값은 아직 없다.
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
-- Phase 4의 정식 성능 측정값은 아직 없다.
+- capacity discovery 값은 부하점 결정 Evidence이며 정식 profile 비교값은 아직 없다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -92,6 +94,9 @@
 - Runner final dry-run: commit `3848517`, status `COMPLETED`, invalidating factor 없음
 - Git: Phase 3 구현 `3848517`, final Evidence `2d9fa1a`
 - Phase 4 policy: core 조건 10~15회, run당 최소 20,000 request, precision stop rule
+- Canonical capacity: C*=28 RPS, first failing=30 RPS, interval width 7.14%
+- Canonical operating points: 3/8/17/22 RPS
+- Capacity retry: 27/28 RPS `COMPLETED`, telemetry factor 없음, Tempo restart 0
 
 ## 재개 절차
 

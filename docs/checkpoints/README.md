@@ -24,7 +24,7 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 ## Phase 4 체크포인트
 
 - [측정 반복과 부하 설계](phase-04-p1-measurement-design.md): 완료
-- [Canonical chain capacity discovery](phase-04-p2-chain-capacity-discovery.md): 진행 중
+- [Canonical chain capacity discovery](phase-04-p2-chain-capacity-discovery.md): measured
 
 ## 갱신 시점
 
