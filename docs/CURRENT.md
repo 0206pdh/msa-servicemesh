@@ -7,7 +7,7 @@
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 4 — No Mesh baseline 준비
 - Infrastructure Step: Phase 3 exit Gate 완료
-- Status: ready-for-phase-4
+- Status: phase-4-capacity-discovery
 - Last updated: 2026-07-23
 
 ## 완료된 기준점
