@@ -11,6 +11,11 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 - [체크포인트 템플릿](checkpoint-template.md): 작업 묶음별 진행 기록
 - `docs/evidence/`: 검증 원본과 결론
 
+## Phase 3 체크포인트
+
+- [VMware 노드 사전 준비](phase-03-p1-vmware-node-prerequisites.md): 설정 원본과 재부팅 유지 Evidence 보강 중
+- [Kubernetes 3노드와 Cilium/Hubble](phase-03-p2-kubernetes-cilium.md): 완료
+
 ## 갱신 시점
 
 다음 시점마다 체크포인트를 갱신한다.

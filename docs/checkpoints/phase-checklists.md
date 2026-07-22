@@ -34,9 +34,11 @@
 
 - [x] VMware 3노드, 고정 IP와 OS/containerd/Kubernetes 사전 준비
 - [ ] 노드 inventory/버전/시간 동기화 Evidence
-- [ ] kubeadm Control Plane과 Worker join
-- [ ] VMware/Kubernetes 버전과 자원 기록
-- [ ] Cilium/Hubble, MetalLB, Gateway API
+- [x] kubeadm Control Plane과 Worker join
+- [x] Kubernetes/Ubuntu/containerd/Cilium 확인 버전 기록
+- [ ] VMware 자원과 UUID/MAC 원본 Evidence 수집
+- [x] Cilium/Hubble
+- [ ] MetalLB와 Gateway API
 - [ ] Prometheus/Grafana/Loki/Tempo/OTel
 - [ ] Helm profile과 NetworkPolicy
 - [ ] telemetry completeness와 headroom
