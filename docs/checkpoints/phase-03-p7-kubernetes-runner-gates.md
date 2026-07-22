@@ -24,6 +24,6 @@
 
 ## 다음 재개 지점
 
-1. Phase 4 scenario별 포화점 탐색 범위를 정한다.
-2. no-mesh baseline 부하 단계와 반복 횟수를 확정한다.
-3. 유효 run 최소 3회를 실행한다.
+1. Phase 4 scenario별 usable capacity `C*`를 탐색한다.
+2. `C*` 기반 10/30/60/80% 부하를 확정한다.
+3. core 조건별 10~15회 정밀도 Gate를 실행한다.

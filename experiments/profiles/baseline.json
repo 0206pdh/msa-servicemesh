@@ -1,1 +1,1 @@
-{ "executor": "CONSTANT_ARRIVAL_RATE", "targetRps": 50, "warmupSeconds": 30, "durationSeconds": 300, "repetitions": 3 }
+{ "executor": "CONSTANT_ARRIVAL_RATE", "capacityFraction": 0.30, "warmupSeconds": 180, "minimumDurationSeconds": 600, "maximumDurationSeconds": 1800, "minimumRequests": 20000, "minimumValidRuns": 10, "maximumValidRuns": 15 }

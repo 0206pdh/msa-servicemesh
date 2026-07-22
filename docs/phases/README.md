@@ -133,7 +133,7 @@ Exit: 개선 전 baseline run ID와 독립 변수가 승인됨.
 6. HPA metric(CPU/RPS/lag)
 7. MVC Virtual Threads/WebFlux
 
-각 개선은 한 변수만 바꾸고 최소 3회 재측정한다. 개선 실패도 결과다.
+각 개선은 한 변수만 바꾸고 paired run 최소 10회와 ADR-0014 정밀도 Gate로 재측정한다. 개선 실패도 결과다.
 
 ## Phase 10 — 회복탄력성
 

@@ -127,6 +127,9 @@ class Runner:
                    "-e", f"TARGET_URL={spec['targetUrl']}", "-e", f"SCENARIO={spec['scenario']}",
                    "-e", f"RUN_ID={spec['runId']}", "-e", f"SEED={spec['seed']}",
                    "-e", f"TARGET_RPS={load['targetRps']}", "-e", f"DURATION={duration}s",
+                   "-e", f"EXPECTED_ITERATION_MS={load.get('expectedIterationMs', 250)}",
+                   "-e", f"PRE_ALLOCATED_VUS={load.get('preAllocatedVUs', '')}",
+                   "-e", f"MAX_ERROR_RATE={load.get('maximumErrorRate', 0.01)}",
                    "-e", f"WORKLOAD_CONFIG={canonical(spec['workloadConfig'])}",
                    "grafana/k6:0.49.0", "run", "--summary-export", f"/results/{output.name}", "/scripts/benchmark.js"]
         samples: list[dict] = []
@@ -222,6 +225,15 @@ class Runner:
         dropped = dropped_metric.get("values", dropped_metric).get("count", 0)
         invalid = list(gate_factors or [])
         if dropped: invalid.append("DROPPED_ITERATIONS")
+        sample_count = int(requests.get("count", 0))
+        load_profile = spec.get("loadProfile", {})
+        minimum_requests = int(load_profile.get("minimumRequests", 0))
+        if minimum_requests and sample_count < minimum_requests:
+            invalid.append("INSUFFICIENT_REQUEST_SAMPLES")
+        achieved_rate = requests.get("rate")
+        target_rate = float(load_profile.get("targetRps", 0))
+        if target_rate and (achieved_rate is None or achieved_rate / target_rate < 0.98):
+            invalid.append("TARGET_RATE_NOT_ACHIEVED")
         if spec["adapter"] != "kubernetes": invalid.append("NON_MEASUREMENT_COMPOSE_ADAPTER")
         if spec["adapter"] == "kubernetes" and self._git("status", "--porcelain"):
             invalid.append("DIRTY_SOURCE_TREE")
@@ -254,7 +266,7 @@ class Runner:
             node_resource = {**empty_resource, "cpuPeakPercent": window_snapshot.get("nodeCpuPeakPercent"),
                              "memoryMinimumByNode": window_snapshot.get("nodeMemoryMinimum")}
         return {"runId": spec["runId"], "profile": spec["profile"], "scenario": spec["scenario"], "status": status,
-                "window": {"start": started, "end": ended}, "sampleCount": int(requests.get("count", 0)),
+                "window": {"start": started, "end": ended}, "sampleCount": sample_count,
                 "metrics": {"throughputRps": requests.get("rate"), "errorRate": failed,
                             "latencyMs": {"p50": values.get("med"), "p95": values.get("p(95)"), "p99": values.get("p(99)")}},
                 "resources": {"application": application_resource, "sidecar": None, "ztunnel": None, "waypoint": None,

@@ -1,1 +1,1 @@
-{ "executor": "RAMPING_ARRIVAL_RATE", "targetRps": 500, "warmupSeconds": 60, "durationSeconds": 900, "repetitions": 3 }
+{ "executor": "CAPACITY_DISCOVERY", "startRps": 10, "geometricFactor": 2, "warmupSecondsPerPoint": 120, "durationSecondsPerPoint": 180, "repetitionsPerPoint": 1, "binaryRefinementSteps": 4 }

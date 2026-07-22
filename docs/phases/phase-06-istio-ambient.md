@@ -14,6 +14,6 @@ Ambient의 노드 공유 ztunnel 비용 구조와 Sidecar 대비 확장 특성�
 ## 검증과 Gate
 
 - 우회 경로가 없고 ztunnel metric/trace가 run과 연결됨
-- 같은 image, load, placement에서 유효 run 최소 3회
+- 같은 image, 절대 RPS와 placement에서 paired core 조건 10~15회
 - 진입: No Mesh와 Sidecar 측정 완료
 - 종료: Ambient 비용 증가 형태와 기능 범위 Evidence `measured`

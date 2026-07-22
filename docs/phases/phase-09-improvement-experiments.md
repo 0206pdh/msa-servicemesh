@@ -19,7 +19,7 @@
 
 - 한 실험에서 독립 변수 하나만 바꾼다.
 - before/after는 동일 baseline, 부하, fault schedule과 수집 설정을 사용한다.
-- 최소 3회 유효 run의 절대/상대 변화와 회귀 metric을 함께 보고한다.
+- paired 유효 run 최소 10회와 정밀도 Gate의 절대/상대 변화 및 회귀 metric을 함께 보고한다.
 - threshold를 통과하지 못한 개선도 `rejected` Evidence로 보존한다.
 - 설정 flag와 rollback 절차로 before 상태를 재현 가능하게 유지한다.
 

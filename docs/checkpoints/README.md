@@ -21,6 +21,10 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 - [Workload NetworkPolicy](phase-03-p6-network-policy.md): 완료
 - [Kubernetes runner와 telemetry Gate](phase-03-p7-kubernetes-runner-gates.md): 완료
 
+## Phase 4 체크포인트
+
+- [측정 반복과 부하 설계](phase-04-p1-measurement-design.md): 완료
+
 ## 갱신 시점
 
 다음 시점마다 체크포인트를 갱신한다.

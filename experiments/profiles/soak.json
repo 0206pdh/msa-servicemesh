@@ -1,1 +1,1 @@
-{ "executor": "CONSTANT_ARRIVAL_RATE", "targetRps": 100, "warmupSeconds": 300, "durationSeconds": 14400, "repetitions": 1 }
+{ "executor": "CONSTANT_ARRIVAL_RATE", "capacityFraction": 0.30, "warmupSeconds": 300, "durationSeconds": 14400, "minimumValidRuns": 3, "maximumValidRuns": 5, "purpose": "leak-and-drift-only" }

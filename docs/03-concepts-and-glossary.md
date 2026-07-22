@@ -280,7 +280,7 @@ relative overhead = (mesh value - baseline value) / baseline value
 
 ### Warm-up과 Repetition
 
-Warm-up은 JIT compilation, connection과 cache를 안정화하는 본 측정 전 구간이다. Repetition은 같은 조건의 반복이며 핵심 결론에는 최소 3개 유효 run을 요구한다.
+Warm-up은 JIT compilation, connection과 cache를 안정화하는 본 측정 전 구간이다. Repetition은 같은 조건의 독립 실행이다. 핵심 steady-state 결론은 최소 10개·최대 15개 유효 run과 사전 정의한 bootstrap CI 정밀도 Gate를 요구한다.
 
 ### Run, ExperimentSpec, Manifest와 Ground Truth
 

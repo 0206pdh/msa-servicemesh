@@ -1,0 +1,53 @@
+{
+  "capacityDiscovery": {
+    "startRps": 10,
+    "geometricFactor": 2,
+    "warmupSecondsPerPoint": 120,
+    "measurementSecondsPerPoint": 180,
+    "repetitionsPerPoint": 1,
+    "stopAtFirstFailingPoint": true,
+    "refinement": {"method": "binary", "maximumSteps": 4, "relativeIntervalWidth": 0.10},
+    "usableCapacityCriteria": {
+      "achievedToTargetRatioMinimum": 0.98,
+      "droppedIterations": 0,
+      "errorRateMaximum": 0.01,
+      "p99ToLowLoadRatioMaximum": 2.0,
+      "nodeCpuPercentMaximum": 85,
+      "loadGeneratorCpuPercentMaximum": 80,
+      "minimumNodeMemoryAvailableBytes": 1073741824
+    }
+  },
+  "operatingPoints": [
+    {"name": "low", "capacityFraction": 0.10},
+    {"name": "nominal", "capacityFraction": 0.30},
+    {"name": "high", "capacityFraction": 0.60},
+    {"name": "near-saturation", "capacityFraction": 0.80}
+  ],
+  "formalMeasurement": {
+    "minimumValidRuns": 10,
+    "maximumValidRuns": 15,
+    "warmupSeconds": 180,
+    "minimumMeasurementSeconds": 600,
+    "maximumMeasurementSeconds": 1800,
+    "minimumRequestsPerRun": 20000,
+    "cooldownSeconds": 120,
+    "bootstrapResamples": 10000,
+    "confidenceLevel": 0.95,
+    "precision": {
+      "p95RelativeHalfWidth": 0.05,
+      "p99RelativeHalfWidth": 0.10,
+      "cpuPerRequestRelativeHalfWidth": 0.05
+    },
+    "maximumRunsDecision": "INCONCLUSIVE_MAX_RUNS",
+    "outlierPolicy": "do-not-delete-valid-runs",
+    "scheduling": "seeded-randomized-complete-blocks",
+    "maximumRunsPerSession": 5,
+    "minimumSessions": 2
+  },
+  "coreCrossProfileMatrix": [
+    {"scenario": "SYNC_CHAIN", "variant": "hop-3-payload-1KiB-delay-1ms"},
+    {"scenario": "FAN_OUT", "variant": "parallel-16-targets-delay-20ms"},
+    {"scenario": "PAYLOAD", "variant": "64KiB-identity-streaming"},
+    {"scenario": "ASYNC_PIPELINE", "variant": "batch-10-processing-10ms-payload-1KiB"}
+  ]
+}

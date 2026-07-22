@@ -14,7 +14,7 @@ Sidecar가 제공하는 기능과 Pod별 proxy 비용을 No Mesh 기준선과 �
 ## 검증과 Gate
 
 - 실제 traffic이 Sidecar를 통과하고 mTLS가 적용됐음을 확인
-- 유효 run 최소 3회와 절대/상대 overhead 보고
+- No Mesh와 paired block으로 core 조건 10~15회, CI와 절대/상대 overhead 보고
 - 기능 차이가 있는 비교는 별도 실험으로 표시
 - 진입: 승인된 No Mesh baseline
 - 종료: Sidecar 비용과 기능 Evidence `measured`

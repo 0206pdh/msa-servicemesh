@@ -90,6 +90,17 @@ Decision rule
 - Spike: 급증과 HPA
 - Soak: 누수, connection, queue, 저장 증가
 
+고정 RPS는 사용하지 않는다. 먼저 scenario별 usable capacity `C*`를 탐색한 뒤 baseline/load/near-saturation을 각각 C*의 30/60/80% 절대 RPS로 해석한다. 반복과 정지 규칙은 [ADR-0014](../decisions/0014-measurement-repetition-and-load-policy.md)와 `experiments/design/phase4-measurement-policy.json`을 따른다.
+
+## 반복과 통계
+
+- 탐색점: 1회, geometric search 후 binary refinement
+- core steady-state: 최소 10회, 최대 15회
+- 종료: p95/CPU 5%, p99 10% relative CI half-width
+- run 내부: 최소 20,000 request와 600~1,800초 측정
+- 유효 이상치 삭제 금지, 무효 run 원본 보존
+- 조건 순서는 seeded randomized complete block으로 배치
+
 ## Run 무효화 조건
 
 - 부하 발생기 CPU/네트워크 포화

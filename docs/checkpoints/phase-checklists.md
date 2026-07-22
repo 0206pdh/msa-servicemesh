@@ -47,7 +47,7 @@
 ## Phase 4 — No Mesh
 
 - [ ] Scenario별 포화점과 목표 부하
-- [ ] 유효 반복 run 최소 3회
+- [ ] core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate
 - [ ] Workload/부하 발생기 자체 병목 판정
 - [ ] baseline run ID 승인
 - [ ] Phase 4 Evidence measured
@@ -56,7 +56,7 @@
 
 - [ ] injection/mTLS/traffic path 검증
 - [ ] app/proxy 자원 분리
-- [ ] 동일 조건 반복 run 최소 3회
+- [ ] paired core 조건 10~15회와 CI 정밀도 Gate
 - [ ] 기능과 비용 Evidence
 - [ ] Phase 5 Evidence measured
 
@@ -87,7 +87,7 @@
 ## Phase 9 — 개선 실험
 
 - [ ] baseline과 독립 변수 고정
-- [ ] 후보별 before/after 최소 3회
+- [ ] 후보별 paired before/after 최소 10회와 CI 정밀도 Gate
 - [ ] 회귀 지표와 rollback 판정
 - [ ] 실패한 개선도 Evidence 보존
 - [ ] Phase 9 결론 validated/rejected

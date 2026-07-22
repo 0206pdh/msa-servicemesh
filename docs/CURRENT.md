@@ -53,12 +53,14 @@
 - [x] Java startupProbe와 전체 Workload restart 0 기준점
 - [x] clean source commit `3848517` 기반 final dry-run `COMPLETED`
 - [x] Phase 2/3 Evidence와 exit Gate 완료
+- [x] Phase 4 capacity 기반 부하와 10~15회 통계 정밀도 정책
+- [x] bootstrap CI 집계와 자동 정지 판정 구현
 
 ## 다음 작업
 
-1. Phase 4 scenario별 포화점 탐색 범위를 정한다.
-2. no-mesh baseline 부하 단계와 반복 횟수를 확정한다.
-3. 유효 run 최소 3회를 실행하고 baseline run ID를 승인한다.
+1. SYNC_CHAIN canonical condition을 10 RPS부터 2배씩 올려 `C*`를 탐색한다.
+2. 최초 실패점과 마지막 통과점 사이를 최대 4회 이분 탐색한다.
+3. 승인된 `C*`의 10/30/60/80% 절대 RPS를 계산한다.
 
 ## 현재 한계
 
@@ -88,7 +90,8 @@
 - Prometheus: NetworkPolicy 적용 후 Java job 7개 `up=1`, async completed 누계 `6`
 - Runner dry-run v2: 환경 Gate passed, `DIRTY_SOURCE_TREE`만으로 `INVALID`
 - Runner final dry-run: commit `3848517`, status `COMPLETED`, invalidating factor 없음
-- Git: Phase 3 구현 commit `3848517`, final Evidence 문서 commit 예정
+- Git: Phase 3 구현 `3848517`, final Evidence `2d9fa1a`
+- Phase 4 policy: core 조건 10~15회, run당 최소 20,000 request, precision stop rule
 
 ## 재개 절차
 

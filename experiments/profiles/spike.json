@@ -1,1 +1,1 @@
-{ "executor": "RAMPING_ARRIVAL_RATE", "targetRps": 1000, "warmupSeconds": 30, "durationSeconds": 180, "repetitions": 3 }
+{ "executor": "RAMPING_ARRIVAL_RATE", "startCapacityFraction": 0.30, "peakCapacityFraction": 1.10, "warmupSeconds": 180, "durationSeconds": 300, "minimumValidRuns": 5, "maximumValidRuns": 10 }

@@ -48,7 +48,7 @@
 | Load | smoke, baseline, load, stress, spike, soak 중 필요한 profile을 자동 실행한다. |
 | Fault | delay, error, Pod kill, network fault 중 세 종류 이상을 반복한다. |
 | 공정성 | 이미지, replica, limit, node placement, 데이터와 부하 차이를 기록·통제한다. |
-| 반복성 | 핵심 실험을 최소 3회 반복하고 분포와 이상치를 제공한다. |
+| 반복성 | core 조건을 최소 10회·최대 15회 반복하고 bootstrap 95% CI 정밀도와 이상치를 제공한다. |
 | 병목 | 최소 세 개의 병목을 telemetry Evidence로 설명한다. |
 | 개선 | 최소 세 개선안을 동일 조건으로 재측정한다. |
 | Trade-off | 개선된 지표와 악화된 지표·기능 손실을 함께 기록한다. |
@@ -71,7 +71,7 @@
 
 - 모든 핵심 결과가 raw data → summary → graph → conclusion으로 연결된다.
 - 환경·버전·commit/image digest·resource·부하·fault가 기록된다.
-- 최소 3회 반복과 중앙값·분포·이상치가 제공된다.
+- core 조건 최소 10회와 정밀도 기반 정지 규칙, 중앙값·분포·이상치가 제공된다.
 - before/after는 하나의 독립 변수만 다르다.
 - 개선 효과를 백분율뿐 아니라 절대값으로 표시한다.
 - 실패하거나 악화된 개선도 보고서에 포함한다.
