@@ -12,11 +12,12 @@
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["idempotencyKey", "processingMillis", "payloadBytes"],
+      "required": ["idempotencyKey", "processingMillis", "payloadBytes", "payloadBase64"],
       "properties": {
         "idempotencyKey": { "type": "string", "minLength": 1 },
         "processingMillis": { "type": "integer", "minimum": 0, "maximum": 60000 },
         "payloadBytes": { "type": "integer", "minimum": 0, "maximum": 10485760 },
+        "payloadBase64": { "type": "string", "contentEncoding": "base64" },
         "seed": { "type": "integer" }
       }
     }

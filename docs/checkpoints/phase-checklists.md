@@ -13,20 +13,21 @@
 
 - [x] A1 Java 25 공통 런타임, 관측 기능과 Compose E2E
 - [x] A2 bounded Workload Target
-- [ ] A3 Sync Chain과 deadline/cancellation
-- [ ] A4 Fan-out과 partial result
-- [ ] A5 Kafka Async Pipeline과 멱등성
-- [ ] A6 Payload와 checksum
-- [ ] 전체 계약/통합/E2E 검증
-- [ ] Phase 1 Evidence validated
+- [x] A3 Sync Chain과 deadline/cancellation
+- [x] A4 Fan-out과 partial result
+- [x] A5 Kafka Async Pipeline과 멱등성
+- [x] A6 Payload와 checksum
+- [x] 전체 계약/통합/E2E 검증
+- [x] Phase 1 Evidence validated
 
 ## Phase 2 — 실험 자동화
 
-- [ ] Runner 상태 머신과 ExperimentSpec
-- [ ] k6 profile과 반복 실행
-- [ ] Ground Truth와 config snapshot
-- [ ] raw export와 summary 생성
-- [ ] invalidation/cleanup 검증
+- [x] Runner 상태 머신과 ExperimentSpec
+- [x] k6 profile과 반복 실행
+- [x] Ground Truth와 config snapshot
+- [x] raw export와 summary 생성
+- [x] 로컬 adapter invalidation과 overwrite 방지
+- [ ] Kubernetes telemetry/headroom/fault cleanup 검증(Phase 3 환경 필요)
 - [ ] Phase 2 Evidence validated
 
 ## Phase 3 — 플랫폼 기반

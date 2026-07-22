@@ -19,3 +19,4 @@ management:
 mesh-perf:
   image-digest: ${IMAGE_DIGEST:local}
   workload-role: ${WORKLOAD_ROLE:target-a}
+  next-base-url: ${WORKLOAD_NEXT_BASE_URL:http://localhost:8082}

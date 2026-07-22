@@ -1,0 +1,1 @@
+{ "executor": "CONSTANT_ARRIVAL_RATE", "targetRps": 200, "warmupSeconds": 60, "durationSeconds": 600, "repetitions": 3 }

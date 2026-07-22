@@ -1,6 +1,20 @@
 spring:
   application:
     name: worker-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: meshperf-workers
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        max.partition.fetch.bytes: 15000000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.request.size: 15000000
 server:
   port: ${SERVER_PORT:8084}
 management:
@@ -19,4 +33,4 @@ management:
 mesh-perf:
   image-digest: ${IMAGE_DIGEST:local}
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:none}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

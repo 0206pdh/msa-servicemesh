@@ -225,6 +225,7 @@ components:
         bodyBase64: { type: [string, 'null'], contentEncoding: base64 }
     PublishTasksRequest:
       type: object
+      description: taskCount multiplied by payloadBytes must not exceed the 64 MiB batch safety limit.
       additionalProperties: false
       required: [taskCount, processingMillis, payloadBytes, seed]
       properties:

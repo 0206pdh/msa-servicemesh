@@ -1,0 +1,1 @@
+{ "executor": "RAMPING_ARRIVAL_RATE", "targetRps": 1000, "warmupSeconds": 30, "durationSeconds": 180, "repetitions": 3 }

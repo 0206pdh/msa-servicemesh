@@ -1,6 +1,13 @@
 spring:
   application:
     name: producer-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.request.size: 15000000
 server:
   port: ${SERVER_PORT:8083}
 management:
@@ -19,4 +26,4 @@ management:
 mesh-perf:
   image-digest: ${IMAGE_DIGEST:local}
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:none}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

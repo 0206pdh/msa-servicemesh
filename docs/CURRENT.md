@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 1 — Benchmark Workload 구현
-- Application Step: A3 — Sync Chain 시작 전
-- Status: ready
+- Overall Phase: Phase 2 — 실험 자동화 로컬 구현 완료, VMware 검증 대기
+- Application Step: A1~A7 구현 완료
+- Status: validated-local
 - Last updated: 2026-07-22
 
 ## 완료된 기준점
@@ -20,26 +20,31 @@
 - [x] Compose 6개 서비스 healthy와 Gateway → Orchestrator smoke 확인
 - [x] GitHub `0206pdh/msa-servicemesh` main 동기화
 - [x] Mesh, Benchmark, Workload와 측정 용어 기준 문서화
+- [x] A2~A6 bounded workload와 Compose 7-container E2E
+- [x] Phase 2 runner, k6 profile, Ground Truth/raw/summary 구현
+- [x] 같은 Compose smoke spec 3회 반복과 무효화 판정
 
 ## 다음 작업
 
-1. A3 `/workloads/chain` contract와 hop route를 구현한다.
-2. 절대 deadline을 남은 budget으로 전파하고 timeout/cancellation을 검증한다.
-3. hop별 trace와 완료 hop 수를 확인한다.
+1. Phase 3에서 VMware Kubernetes cluster와 관측 stack을 구축한다.
+2. Kubernetes adapter의 telemetry/headroom/fault cleanup gate를 실측한다.
+3. 유효한 No Mesh baseline 측정 전에는 개선 구현을 시작하지 않는다.
 
 ## 현재 한계
 
-- 실제 Workload API는 ping 골격 외에 구현되지 않았다.
 - 성능 측정값은 아직 없다.
+- 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
+- Kubernetes telemetry/headroom/fault cleanup 검증은 Phase 3 환경이 있어야 완료된다.
 - Control Plane 인증 상세는 Phase 3 전에 ADR로 확정한다.
 
 ## 마지막 검증
 
 - `java -version`: Temurin 25.0.3
 - Java 서비스 5개 `gradlew test`: passed
-- Compose 6개 healthy, ID/trace 전파와 config/Prometheus E2E: passed
-- Git: `main`과 `origin/main` 동기화
-- Latest commit at checkpoint creation: `1d5384c`
+- Compose 7개 healthy, chain/fanout/payload/async E2E: passed
+- Python runner unit test: passed
+- Docker k6 동일 spec 3회: artifact 생성, Compose adapter 무효화 passed
+- Git: 이번 변경은 최종 검증 후 push 예정
 
 ## 재개 절차
 

@@ -20,3 +20,5 @@ mesh-perf:
   image-digest: ${IMAGE_DIGEST:local}
   orchestrator:
     base-url: ${ORCHESTRATOR_BASE_URL:http://localhost:8081}
+  producer:
+    base-url: ${PRODUCER_BASE_URL:http://localhost:8083}

@@ -1,0 +1,15 @@
+{
+  "runId": "phase2-smoke-chain-v2",
+  "adapter": "compose",
+  "profile": "NO_MESH",
+  "scenario": "SYNC_CHAIN",
+  "seed": 42,
+  "targetUrl": "http://host.docker.internal:8080",
+  "workloadConfig": {
+    "hopCount": 3,
+    "payloadBytes": 32,
+    "work": { "delayMs": 1, "delayDistribution": "FIXED", "errorRate": 0, "cpuMillis": 0, "memoryBytes": 0, "blockingIoMs": 0, "seed": 42 }
+  },
+  "loadProfile": { "executor": "CONSTANT_ARRIVAL_RATE", "targetRps": 1, "warmupSeconds": 0, "durationSeconds": 1, "repetitions": 3 },
+  "metricUrls": { "gateway": "http://localhost:8080/actuator/prometheus", "orchestrator": "http://localhost:8081/actuator/prometheus", "workload": "http://localhost:8082/actuator/prometheus" }
+}

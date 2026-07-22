@@ -23,6 +23,10 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Secrets
 .env
 .env.*
@@ -41,6 +45,7 @@ kubeconfig.*
 *.tfstate.*
 .terraform/
 experiments/results/
+results/
 artifacts/
 
 # OS / reports
