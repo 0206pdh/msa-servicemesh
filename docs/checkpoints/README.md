@@ -19,7 +19,7 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 - [Prometheus/Loki/Tempo/OTel 관측 기반](phase-03-p4-observability.md): 완료
 - [No-mesh Workload Helm 배포](phase-03-p5-no-mesh-workload.md): 완료
 - [Workload NetworkPolicy](phase-03-p6-network-policy.md): 완료
-- [Kubernetes runner와 telemetry Gate](phase-03-p7-kubernetes-runner-gates.md): 진행 중
+- [Kubernetes runner와 telemetry Gate](phase-03-p7-kubernetes-runner-gates.md): 완료
 
 ## 갱신 시점
 

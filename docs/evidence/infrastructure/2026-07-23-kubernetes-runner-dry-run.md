@@ -49,3 +49,19 @@ Pod 로그는 OTel Collector chart 0.165.0 DaemonSet 3개로 수집한다. 공�
 - 유일한 원인: `DIRTY_SOURCE_TREE`
 
 따라서 구현과 환경 Gate는 통과했으며 검증 스냅샷을 커밋한 뒤 clean-tree final dry-run이 필요하다. 위 수치는 runner 검증용이고 Phase 4 baseline으로 인용하지 않는다.
+
+### `phase3-no-mesh-final-dry-run`
+
+- source commit: `3848517`
+- source tree: clean
+- status: `COMPLETED`
+- invalidating factors: 없음
+- sample: 11, error rate 0
+- preflight/telemetry/headroom/cleanup Gate: 모두 passed
+- application CPU: 45.16 core-seconds, peak 0.75 cores
+- application memory peak: 1,897,852,928 bytes
+- node CPU peak: 29.78%
+- node minimum available memory: 2,174,005,248 / 3,587,432,448 / 2,942,390,272 bytes
+- load-generator CPU peak: 0.71%, 4 samples
+
+Phase 3 exit dry-run은 유효하다. 이 실행 역시 저부하 기능/Gate 검증용이며 Phase 4 성능 baseline으로 사용하지 않는다.

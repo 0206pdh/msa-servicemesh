@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 3 — VMware Kubernetes 플랫폼 기반
-- Infrastructure Step: P7 — Kubernetes runner Gate 구현 완료, clean-tree final dry-run 대기
-- Status: in-progress
-- Last updated: 2026-07-22
+- Overall Phase: Phase 4 — No Mesh baseline 준비
+- Infrastructure Step: Phase 3 exit Gate 완료
+- Status: ready-for-phase-4
+- Last updated: 2026-07-23
 
 ## 완료된 기준점
 
@@ -51,18 +51,20 @@
 - [x] run ID Loki/Tempo marker와 Hubble flow artifact
 - [x] Docker load-generator CPU sampling과 Kubernetes node 자원 분리
 - [x] Java startupProbe와 전체 Workload restart 0 기준점
+- [x] clean source commit `3848517` 기반 final dry-run `COMPLETED`
+- [x] Phase 2/3 Evidence와 exit Gate 완료
 
 ## 다음 작업
 
-1. 검증된 변경을 commit해 source tree를 clean 상태로 만든다.
-2. 새 run ID로 clean-tree final dry-run을 실행한다.
-3. Phase 3 exit Gate를 판정하고 Phase 4 no-mesh baseline으로 전환한다.
+1. Phase 4 scenario별 포화점 탐색 범위를 정한다.
+2. no-mesh baseline 부하 단계와 반복 횟수를 확정한다.
+3. 유효 run 최소 3회를 실행하고 baseline run ID를 승인한다.
 
 ## 현재 한계
 
 - 성능 측정값은 아직 없다.
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
-- clean-tree final dry-run 전이라 Phase 3 exit Gate는 아직 닫지 않았다.
+- Phase 4의 정식 성능 측정값은 아직 없다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -85,7 +87,8 @@
 - NetworkPolicy: Helm revision 3, KNP 11개와 CNP 1개, 허용/차단 smoke passed
 - Prometheus: NetworkPolicy 적용 후 Java job 7개 `up=1`, async completed 누계 `6`
 - Runner dry-run v2: 환경 Gate passed, `DIRTY_SOURCE_TREE`만으로 `INVALID`
-- Git: Phase 3 P7 변경 전체 검증 후 commit 예정
+- Runner final dry-run: commit `3848517`, status `COMPLETED`, invalidating factor 없음
+- Git: Phase 3 구현 commit `3848517`, final Evidence 문서 commit 예정
 
 ## 재개 절차
 

@@ -28,7 +28,7 @@
 - [x] raw export와 summary 생성
 - [x] 로컬 adapter invalidation과 overwrite 방지
 - [x] Kubernetes telemetry/headroom/fault cleanup 검증
-- [ ] Phase 2 Evidence validated
+- [x] Phase 2 Evidence validated
 
 ## Phase 3 — 플랫폼 기반
 
@@ -41,8 +41,8 @@
 - [x] MetalLB와 Gateway API
 - [x] Prometheus/Grafana/Loki/Tempo/OTel
 - [x] Helm profile과 NetworkPolicy
-- [ ] telemetry completeness와 headroom — dirty-tree dry-run 통과, clean-tree final dry-run 대기
-- [ ] Phase 3 Evidence validated
+- [x] telemetry completeness와 headroom
+- [x] Phase 3 Evidence validated
 
 ## Phase 4 — No Mesh
 
