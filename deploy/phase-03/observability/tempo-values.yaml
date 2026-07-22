@@ -1,5 +1,8 @@
 tempo:
   retention: 24h
+  # Keep the legacy ballast below the container limit. The chart default of
+  # 1024 MiB causes Tempo to be OOMKilled with this lab's 768 MiB limit.
+  memBallastSizeMbs: 256
   resources:
     requests:
       cpu: 100m

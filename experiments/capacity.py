@@ -9,6 +9,17 @@ from pathlib import Path
 from experiments.runner.cli import Runner
 
 
+CAPACITY_FAILURE_FACTORS = {
+    "ACHIEVED_TARGET_RATIO_BELOW_MINIMUM",
+    "DROPPED_ITERATIONS",
+    "ERROR_RATE_EXCEEDED",
+    "P99_EXCEEDS_2X_LOW_LOAD",
+    "NODE_CPU_HEADROOM_LOW",
+    "LOAD_GENERATOR_CPU_SATURATED",
+    "NODE_MEMORY_HEADROOM_LOW",
+}
+
+
 def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None) -> dict:
     load = {
         "executor": "CONSTANT_ARRIVAL_RATE",
@@ -54,7 +65,16 @@ def evaluate(summary: dict, low_load_p99: float | None) -> dict:
     factors = list(summary.get("invalidatingFactors", []))
     if low_load_p99 and p99 is not None and p99 > low_load_p99 * 2:
         factors.append("P99_EXCEEDS_2X_LOW_LOAD")
-    return {"passed": summary.get("status") == "COMPLETED" and not factors,
+    non_capacity_factors = [factor for factor in factors if factor not in CAPACITY_FAILURE_FACTORS]
+    if non_capacity_factors:
+        outcome = "INVALID"
+    elif factors:
+        outcome = "CAPACITY_FAIL"
+    elif summary.get("status") == "COMPLETED":
+        outcome = "PASS"
+    else:
+        outcome = "INVALID"
+    return {"passed": outcome == "PASS", "outcome": outcome,
             "targetRps": target, "p99Ms": p99, "factors": factors}
 
 
@@ -81,13 +101,29 @@ class CapacityDiscovery:
         self.state_path.write_text(json.dumps(self.state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def _existing(self, rps: int) -> dict | None:
-        return next((point for point in self.state["points"] if point["targetRps"] == rps), None)
+        points = [point for point in self.state["points"] if point["targetRps"] == rps]
+        for point in reversed(points):
+            outcome = point.get("outcome")
+            if outcome is None:
+                factors = point.get("factors", [])
+                if point.get("passed"):
+                    outcome = "PASS"
+                elif all(factor in CAPACITY_FAILURE_FACTORS for factor in factors):
+                    outcome = "CAPACITY_FAIL"
+                else:
+                    outcome = "INVALID"
+            if outcome != "INVALID":
+                return point
+        return None
 
     def run_point(self, rps: int, phase: str) -> dict:
         existing = self._existing(rps)
         if existing:
             return existing
+        attempt = 1 + sum(point["targetRps"] == rps for point in self.state["points"])
         run_id = f"phase4-chain-capacity-{phase.lower()}-rps-{rps:05d}"
+        if attempt > 1:
+            run_id += f"-retry-{attempt:02d}"
         spec = discovery_spec(run_id, rps)
         run_dir = Runner(self.root).execute(spec, 1)[0]
         summary_path = run_dir / "summary.json"
@@ -100,7 +136,8 @@ class CapacityDiscovery:
                  "errorRate": summary.get("metrics", {}).get("errorRate"),
                  "p95Ms": summary.get("metrics", {}).get("latencyMs", {}).get("p95"),
                  "p99Ms": result["p99Ms"], "passed": result["passed"],
-                 "factors": result["factors"], "resources": summary.get("resources", {})}
+                 "outcome": result["outcome"], "factors": result["factors"],
+                 "resources": summary.get("resources", {})}
         if self.state["lowLoadP99Ms"] is None and point["passed"]:
             self.state["lowLoadP99Ms"] = point["p99Ms"]
         self.state["points"].append(point)
@@ -113,6 +150,10 @@ class CapacityDiscovery:
         first_fail = None
         while rps <= self.max_rps:
             point = self.run_point(rps, "GEOMETRIC")
+            if point.get("outcome") == "INVALID":
+                self.state.update({"status": "INVALID_POINT", "invalidPointRps": rps})
+                self._write()
+                return self.state
             if point["passed"]:
                 last_pass = rps
                 rps *= self.factor
@@ -138,6 +179,10 @@ class CapacityDiscovery:
                 break
             midpoint = math.floor((low + high) / 2)
             point = self.run_point(midpoint, "REFINE")
+            if point.get("outcome") == "INVALID":
+                self.state.update({"status": "INVALID_POINT", "invalidPointRps": midpoint})
+                self._write()
+                return self.state
             if point["passed"]:
                 low = midpoint
             else:
