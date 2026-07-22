@@ -19,6 +19,7 @@
 - [x] Java 25 설치 및 서비스 5개 Gradle test 통과
 - [x] Compose 6개 서비스 healthy와 Gateway → Orchestrator smoke 확인
 - [x] GitHub `0206pdh/msa-servicemesh` main 동기화
+- [x] Mesh, Benchmark, Workload와 측정 용어 기준 문서화
 
 ## 다음 작업
 
