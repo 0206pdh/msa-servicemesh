@@ -1,0 +1,6 @@
+apiVersion: v2
+name: meshperf
+description: Service Mesh performance benchmark workload
+type: application
+version: 0.1.0
+appVersion: "9cf3285756d2"

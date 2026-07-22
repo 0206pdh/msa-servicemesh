@@ -14,7 +14,7 @@
 - [x] 동일 spec 3회 동일 artifact 구조
 - [x] 기존 Evidence 디렉터리 overwrite 거부
 - [x] Compose 실행을 측정 부적격 `INVALID`로 자동 표기
-- [ ] VMware Kubernetes에서 telemetry/headroom/fault cleanup gate 실측 — Phase 3 환경 구축 후 수행
+- [x] VMware Kubernetes에서 telemetry/headroom/fault cleanup gate 실측
 
 ## 판정
 

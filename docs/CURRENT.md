@@ -6,7 +6,7 @@
 
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 3 — VMware Kubernetes 플랫폼 기반
-- Infrastructure Step: P2 — Kubernetes 3노드와 Cilium/Hubble 기반 완료
+- Infrastructure Step: P7 — Kubernetes runner Gate 구현 완료, clean-tree final dry-run 대기
 - Status: in-progress
 - Last updated: 2026-07-22
 
@@ -30,21 +30,42 @@
 - [x] Worker 2대 join 및 Kubernetes 3노드 `Ready`
 - [x] Cilium 1.19.6 Agent/Envoy 3노드 배포
 - [x] Cilium Operator 2개와 Hubble Relay/UI 정상화
+- [x] VM inventory, 고유 MAC, 시간 동기화와 서비스 상태 원본 수집
+- [x] Gateway API 1.4.1과 Cilium Gateway controller 활성화
+- [x] MetalLB 0.16.1 L2 및 `192.168.200.100~110` pool 구성
+- [x] Windows host → MetalLB → Cilium Gateway → 임시 backend smoke 검증
+- [x] 세 VM 순차 재부팅 후 IP/서비스/NTP/Kubernetes/Cilium/MetalLB 복구 검증
+- [x] Hubble Relay cluster-wide `3/3` 연결과 JSON flow export 검증
+- [x] Local Path StorageClass와 Pod 재생성 persistence 검증
+- [x] Prometheus/Grafana/Loki/Tempo/OTel Collector 배포
+- [x] Prometheus query, Loki push/query, OTel → Tempo trace round trip 검증
+- [x] Java Workload 이미지 5개 GHCR build/push와 linux/amd64 digest lock
+- [x] GHCR Public 전환과 Kubernetes anonymous pull smoke
+- [x] digest-pinned 공통 Helm chart와 no-mesh values 배포
+- [x] Cilium Gateway를 통한 chain/fan-out/payload/async 외부 E2E
+- [x] benchmark Java target 7개 Prometheus 수집과 async worker 완료 metric
+- [x] 기본 deny NetworkPolicy와 서비스별 최소 허용 규칙
+- [x] Cilium `reserved:ingress` Gateway 경로와 임의 Pod 직접 접근 차단 검증
+- [x] Kubernetes runner telemetry/headroom/cleanup 자동 Gate
+- [x] OTel DaemonSet Pod log 수집과 Loki native OTLP ingest
+- [x] run ID Loki/Tempo marker와 Hubble flow artifact
+- [x] Docker load-generator CPU sampling과 Kubernetes node 자원 분리
+- [x] Java startupProbe와 전체 Workload restart 0 기준점
 
 ## 다음 작업
 
-1. VM UUID/MAC 고유성과 재부팅 후 네트워크·containerd·시간 동기화 유지 상태를 저장한다.
-2. MetalLB와 Gateway API를 설치하고 네트워크 진입 경로를 검증한다.
-3. Prometheus/Grafana/Loki/Tempo/OpenTelemetry 관측 스택을 배포한다.
+1. 검증된 변경을 commit해 source tree를 clean 상태로 만든다.
+2. 새 run ID로 clean-tree final dry-run을 실행한다.
+3. Phase 3 exit Gate를 판정하고 Phase 4 no-mesh baseline으로 전환한다.
 
 ## 현재 한계
 
 - 성능 측정값은 아직 없다.
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
-- Kubernetes telemetry/headroom/fault cleanup 검증은 Phase 3 환경이 있어야 완료된다.
-- VM inventory는 각 노드의 `/tmp/<hostname>-inventory.txt`에 생성했지만 아직 저장소로 수집하지 않았다.
-- UUID/MAC 고유성과 재부팅 후 설정 유지 검증은 남아 있다.
-- Control Plane 인증 상세는 Phase 3 전에 ADR로 확정한다.
+- clean-tree final dry-run 전이라 Phase 3 exit Gate는 아직 닫지 않았다.
+- VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
+- dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
+- 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
 
 ## 마지막 검증
 
@@ -56,7 +77,15 @@
 - Kubernetes: `mesh-cp-01`, `mesh-worker-01`, `mesh-worker-02` 모두 `Ready`
 - Cilium DaemonSet: Desired/Current/Ready `3/3/3`
 - Cilium Operator `2/2`, Hubble Relay `1/1`, Hubble UI `1/1` Available
-- Git: 이번 변경은 최종 검증 후 push 예정
+- MetalLB Controller `1/1`, Speaker `3/3`, `GatewayClass/cilium` Accepted
+- Gateway smoke: `192.168.200.100`, Programmed/Accepted/ResolvedRefs, Windows HTTP passed
+- Helm `meshperf` revision 1: `deployed`, 애플리케이션/Kafka Pod 모두 Ready
+- No-mesh E2E: ping/3-hop chain/3-target fan-out/4 KiB payload/3-task async passed
+- Prometheus: benchmark Java job 7개 `up=1`, async completed `3`
+- NetworkPolicy: Helm revision 3, KNP 11개와 CNP 1개, 허용/차단 smoke passed
+- Prometheus: NetworkPolicy 적용 후 Java job 7개 `up=1`, async completed 누계 `6`
+- Runner dry-run v2: 환경 Gate passed, `DIRTY_SOURCE_TREE`만으로 `INVALID`
+- Git: Phase 3 P7 변경 전체 검증 후 commit 예정
 
 ## 재개 절차
 

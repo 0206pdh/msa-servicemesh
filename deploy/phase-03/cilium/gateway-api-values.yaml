@@ -1,0 +1,4 @@
+# Overlay for the existing Cilium 1.19.6 release.
+kubeProxyReplacement: true
+gatewayAPI:
+  enabled: true

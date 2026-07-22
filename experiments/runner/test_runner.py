@@ -29,5 +29,21 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(shapes[0], shapes[1])
             self.assertEqual(shapes[1], shapes[2])
 
+    def test_k6_values_shape_is_parsed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = root / "results" / "run" / "repeat-01" / "raw"
+            raw.mkdir(parents=True)
+            (raw / "k6-summary.json").write_text(json.dumps({"metrics": {
+                "http_reqs": {"values": {"count": 5, "rate": 2.5}},
+                "http_req_failed": {"values": {"rate": 0}},
+                "http_req_duration": {"values": {"med": 1, "p(95)": 2, "p(99)": 3}},
+                "dropped_iterations": {"values": {"count": 0}},
+            }}), encoding="utf-8")
+            spec = {"runId": "run", "adapter": "compose", "profile": "NO_MESH", "scenario": "SYNC_CHAIN"}
+            summary = Runner(root)._summary(spec, raw.parent, "start", "end")
+            self.assertEqual(summary["sampleCount"], 5)
+            self.assertEqual(summary["metrics"]["latencyMs"]["p95"], 2)
+
 
 if __name__ == "__main__": unittest.main()

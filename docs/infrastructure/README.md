@@ -14,7 +14,7 @@ Windows/VMware Host
 └── load-generator    가능하면 별도 VM 또는 headroom 증명
 ```
 
-실제 사양은 호스트 측정 후 ADR로 확정한다.
+실제 사양과 관측 스택 requests/limits는 노드 inventory와 idle headroom을 수집한 뒤 고정한다.
 
 ## Namespace
 
@@ -31,7 +31,7 @@ Windows/VMware Host
 2. Kubernetes
 3. Cilium/Hubble
 4. storage
-5. MetalLB/Gateway API
+5. MetalLB L2/Cilium Gateway API
 6. observability
 7. Benchmark Helm chart
 8. Istio profile
@@ -49,6 +49,8 @@ deploy/environments/
 ```
 
 profile 적용 전후 manifest diff를 저장한다. 동일 목적의 Cilium/Istio 정책을 중복 적용하지 않는다.
+
+배포는 GitOps controller 없이 저장소의 version-pinned Helm values와 manifest를 순서대로 직접 적용한다. 결정 근거는 ADR-0011을 따른다.
 
 ## 안전
 

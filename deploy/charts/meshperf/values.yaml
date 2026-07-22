@@ -1,0 +1,94 @@
+global:
+  imagePullPolicy: IfNotPresent
+  otelEndpoint: http://otel-opentelemetry-collector.observability.svc.cluster.local:4318
+  tracingSamplingProbability: "1.0"
+
+javaResources: &javaResources
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+services:
+  benchmark-gateway:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-benchmark-gateway
+      digest: sha256:4fe89712f7a901a39e58911d1e676f57ac521fa0bf7fb4762538ae027a6763cb
+    resources: *javaResources
+    env:
+      ORCHESTRATOR_BASE_URL: http://orchestrator-service:8080
+      PRODUCER_BASE_URL: http://producer-service:8080
+  orchestrator-service:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-orchestrator-service
+      digest: sha256:2374b3df465c7efd2ec200c95be721f4633af4234f6abd1a5e7990a857420246
+    resources: *javaResources
+    env:
+      WORKLOAD_BASE_URL: http://workload-a:8080
+  workload-a:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-workload-service
+      digest: sha256:3a65f770c14cb7cc814d17c40ed99ef17861d01d7c01200b04295e1819897226
+    resources: *javaResources
+    env:
+      WORKLOAD_ROLE: hop-a
+      WORKLOAD_NEXT_BASE_URL: http://workload-b:8080
+  workload-b:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-workload-service
+      digest: sha256:3a65f770c14cb7cc814d17c40ed99ef17861d01d7c01200b04295e1819897226
+    resources: *javaResources
+    env:
+      WORKLOAD_ROLE: hop-b
+      WORKLOAD_NEXT_BASE_URL: http://workload-c:8080
+  workload-c:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-workload-service
+      digest: sha256:3a65f770c14cb7cc814d17c40ed99ef17861d01d7c01200b04295e1819897226
+    resources: *javaResources
+    env:
+      WORKLOAD_ROLE: hop-c
+      WORKLOAD_NEXT_BASE_URL: http://workload-c:8080
+  producer-service:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-producer-service
+      digest: sha256:014655b86b0ff2f1ae549fb0169b850317bd68b32e449b849ae38211cda9a761
+    resources: *javaResources
+    env:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  worker-service:
+    image:
+      repository: ghcr.io/0206pdh/meshperf-worker-service
+      digest: sha256:8cf7728a05934258bb13efa96df247be54644df14ec9ef03c1ec25c49e7a4a38
+    resources: *javaResources
+    env:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+kafka:
+  image: apache/kafka@sha256:01b9a4030e54c6068e66eb3ba4cb82c0d89238629ef1c30d79b86036bf89b1b7
+  storageClass: local-path
+  storage: 3Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+gateway:
+  enabled: true
+  name: benchmark
+  className: cilium
+  listenerPort: 80
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+
+networkPolicy:
+  enabled: true
+  observabilityNamespace: observability
+  dnsNamespace: kube-system

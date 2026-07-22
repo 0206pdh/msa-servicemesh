@@ -13,8 +13,13 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 
 ## Phase 3 체크포인트
 
-- [VMware 노드 사전 준비](phase-03-p1-vmware-node-prerequisites.md): 설정 원본과 재부팅 유지 Evidence 보강 중
+- [VMware 노드 사전 준비](phase-03-p1-vmware-node-prerequisites.md): 완료
 - [Kubernetes 3노드와 Cilium/Hubble](phase-03-p2-kubernetes-cilium.md): 완료
+- [MetalLB와 Cilium Gateway API](phase-03-p3-network-entrypoint.md): 완료
+- [Prometheus/Loki/Tempo/OTel 관측 기반](phase-03-p4-observability.md): 완료
+- [No-mesh Workload Helm 배포](phase-03-p5-no-mesh-workload.md): 완료
+- [Workload NetworkPolicy](phase-03-p6-network-policy.md): 완료
+- [Kubernetes runner와 telemetry Gate](phase-03-p7-kubernetes-runner-gates.md): 진행 중
 
 ## 갱신 시점
 

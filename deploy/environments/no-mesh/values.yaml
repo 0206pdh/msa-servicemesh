@@ -1,0 +1,4 @@
+profile: no-mesh
+
+global:
+  tracingSamplingProbability: "1.0"

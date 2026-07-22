@@ -1,0 +1,24 @@
+tempo:
+  retention: 24h
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+
+persistence:
+  enabled: true
+  storageClassName: local-path
+  size: 2Gi
+
+nodeSelector:
+  kubernetes.io/hostname: mesh-cp-01
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+serviceMonitor:
+  enabled: true

@@ -1,0 +1,162 @@
+﻿
+## identity
+collected_at_utc=2026-07-22T11:31:01Z
+hostname=mesh-cp-01
+product_uuid=UNAVAILABLE_REQUIRES_SUDO
+
+## os
+PRETTY_NAME="Ubuntu 26.04 LTS"
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04 LTS (Resolute Raccoon)"
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=resolute
+LOGO=ubuntu-logo
+Linux mesh-cp-01 7.0.0-28-generic #28-Ubuntu SMP PREEMPT_DYNAMIC Sun Jun 21 01:01:36 UTC 2026 x86_64 GNU/Linux
+
+## cpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           45 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  2
+On-line CPU(s) list:                     0,1
+Vendor ID:                               AuthenticAMD
+Model name:                              AMD Ryzen 5 7500F 6-Core Processor
+CPU family:                              25
+Model:                                   97
+Thread(s) per core:                      1
+Core(s) per socket:                      2
+Socket(s):                               1
+Stepping:                                2
+BogoMIPS:                                7385.96
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext ibpb vmmcall fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx512_bf16 clzero arat avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid overflow_recov succor fsrm
+Hypervisor vendor:                       VMware
+Virtualization type:                     full
+L1d cache:                               64 KiB (2 instances)
+L1i cache:                               64 KiB (2 instances)
+L2 cache:                                2 MiB (2 instances)
+L3 cache:                                32 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0,1
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode
+Vulnerability Spec store bypass:         Vulnerable
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Mitigation; Clear CPU buffers
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+
+## memory
+               total        used        free      shared  buff/cache   available
+Mem:           5.2Gi       1.4Gi       2.8Gi       5.4Mi       1.2Gi       3.8Gi
+Swap:             0B          0B          0B
+
+## disks
+NAME                       SIZE TYPE FSTYPE      MOUNTPOINTS MODEL
+sr0                        2.7G rom  iso9660                 VMware Virtual SATA CDRW Drive
+nvme0n1                     55G disk                         VMware Virtual NVMe Disk
+├─nvme0n1p1                  1M part                         
+├─nvme0n1p2                  2G part ext4        /boot       
+└─nvme0n1p3                 53G part LVM2_member             
+  └─ubuntu--vg-ubuntu--lv 26.5G lvm  ext4        /           
+
+## network
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+ens32            UP             192.168.200.10/24 fe80::20c:29ff:fed7:6a78/64 
+cilium_net@cilium_host UP             fe80::e031:dff:fe1d:f6b/64 
+cilium_host@cilium_net UP             10.244.0.114/32 fe80::a0ed:5aff:fe3a:5fe2/64 
+cilium_vxlan     UNKNOWN        fe80::f808:c4ff:fe2a:f0d2/64 
+lxc_health@if6   UP             fe80::542d:a6ff:fe83:d00f/64 
+lxc3006a34876ae@if8 UP             fe80::4cd0:f5ff:fe52:fa2d/64 
+lxcff0925cc7bf9@if10 UP             fe80::b496:94ff:fe26:7adb/64 
+default via 192.168.200.2 dev ens32 proto static 
+10.244.0.0/24 via 10.244.0.114 dev cilium_host proto kernel src 10.244.0.114 
+10.244.0.114 dev cilium_host proto kernel scope link 
+10.244.1.0/24 via 10.244.0.114 dev cilium_host proto kernel src 10.244.0.114 mtu 1450 
+10.244.2.0/24 via 10.244.0.114 dev cilium_host proto kernel src 10.244.0.114 mtu 1450 
+192.168.200.0/24 dev ens32 proto kernel scope link src 192.168.200.10 
+cilium_host=a2:ed:5a:3a:5f:e2
+cilium_net=e2:31:0d:1d:0f:6b
+cilium_vxlan=fa:08:c4:2a:f0:d2
+ens32=00:0c:29:d7:6a:78
+lxc3006a34876ae=4e:d0:f5:52:fa:2d
+lxcff0925cc7bf9=b6:96:94:26:7a:db
+lxc_health=56:2d:a6:83:d0:0f
+
+## time
+               Local time: Wed 2026-07-22 11:31:01 UTC
+           Universal time: Wed 2026-07-22 11:31:01 UTC
+                 RTC time: Wed 2026-07-22 11:31:01
+                Time zone: Etc/UTC (UTC, +0000)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no
+Reference ID    : B97DBE7B (ntp-nts-3.ps5.canonical.com)
+Stratum         : 3
+Ref time (UTC)  : Wed Jul 22 11:30:15 2026
+System time     : 0.000116900 seconds slow of NTP time
+Last offset     : +0.004042536 seconds
+RMS offset      : 0.004042536 seconds
+Frequency       : 34.602 ppm fast
+Residual freq   : +161.442 ppm
+Skew            : 0.227 ppm
+Root delay      : 0.283113092 seconds
+Root dispersion : 0.010590427 seconds
+Update interval : 2.0 seconds
+Leap status     : Normal
+
+  .-- Source mode  '^' = server, '=' = peer, '#' = local clock.
+ / .- Source state '*' = current best, '+' = combined, '-' = not combined,
+| /             'x' = may be in error, '~' = too variable, '?' = unusable.
+||                                                 .- xxxx [ yyyy ] +/- zzzz
+||      Reachability register (octal) -.           |  xxxx = adjusted offset,
+||      Log2(Polling interval) --.      |          |  yyyy = measured offset,
+||                                \     |          |  zzzz = estimated error.
+||                                 |    |           \
+MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+===============================================================================
+^+ ntp-nts-2.ps5.canonical.>     2   6    17    47    +17ms[  +21ms] +/-  162ms
+^* ntp-nts-3.ps5.canonical.>     2   6    17    45  -1388us[+2655us] +/-  143ms
+^- ntp-nts-2.ps6.canonical.>     2   6    17    45    -10ms[  -10ms] +/-  139ms
+^+ ntp-nts-3.ps6.canonical.>     2   6    17    46  +2404us[+6447us] +/-  145ms
+^- ntp-nts-1.ps5.canonical.>     2   6    17    45  -4297us[-4297us] +/-  141ms
+
+## services
+enabled
+enabled
+enabled
+active
+active
+active
+
+## runtime
+containerd github.com/containerd/containerd/v2 2.2.2 
+v1.36.2
+Kubernetes v1.36.2
+
+## persistence
+swap_entries=0
+net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+disabled_plugins = []
+            SystemdCgroup = true

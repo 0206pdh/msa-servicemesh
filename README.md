@@ -95,6 +95,7 @@ Workload는 지연, 오류율, 응답 크기, CPU, 메모리, fan-out 수와 hop
 ## 현재 상태
 
 - 방향: Service Mesh Performance Engineering으로 확정
-- 현재 Phase: Phase 0 완료, Phase 1 시작 준비
-- Git 저장소: 아직 생성되지 않음
-- 기존 코드: Java/Docker 런타임 골격만 재사용
+- 현재 Phase: Phase 3 VMware Kubernetes 플랫폼 기반 진행 중
+- 완료: Phase 0 설계, Phase 1 Workload, Phase 2 Runner 구현
+- 플랫폼: Kubernetes 1.36.2 3노드와 Cilium 1.19.6/Hubble 정상화
+- 다음 Gate: VM 원본 Evidence, MetalLB/Cilium Gateway API, 관측 스택

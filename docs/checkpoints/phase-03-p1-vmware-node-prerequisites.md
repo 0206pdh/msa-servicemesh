@@ -1,9 +1,10 @@
 # Checkpoint — `phase-03-p1-vmware-node-prerequisites`
 
-- Status: in-progress
+- Status: completed
 - Owner: dohyun
 - Started at: 2026-07-22
 - Updated at: 2026-07-22
+- Completed at: 2026-07-22
 - Related Phase: [Phase 3](../phases/phase-03-platform-foundation.md)
 
 ## 목표
@@ -35,18 +36,17 @@ VMware의 Ubuntu 노드 3대를 고정 네트워크와 동일한 Kubernetes/cont
 - [x] kubeadm/kubelet/kubectl 공통 설치
 - [x] Control Plane Helm 설치
 - [x] 세 노드 inventory 파일 생성(`/tmp/<hostname>-inventory.txt`)
-- [ ] UUID/MAC 고유성 Evidence 저장
-- [ ] 재부팅 후 IP/containerd/chrony 설정 유지 검증
+- [x] UUID/MAC 고유성 Evidence 저장
+- [x] 재부팅 후 IP/containerd/chrony 설정 유지 검증
 - [x] kubeadm Control Plane 초기화(`kube-proxy` 미설치)
 - [x] Cilium 설치와 Control Plane `Ready`
 - [x] Worker 2대 join과 3노드 `Ready`
 
 ## 판정
 
-VM과 Kubernetes 공통 준비, Control Plane 초기화, Worker join 및 Cilium/Hubble 정상화까지 완료됐다. 노드별 inventory 파일은 VM 내부에 있으며, UUID/MAC 및 재부팅 유지 검증과 원본의 저장소 수집이 남아 있어 체크포인트는 `in-progress`를 유지한다.
+VM과 Kubernetes 공통 준비, inventory와 UUID/MAC 고유성, 순차 재부팅 후 설정 및 Kubernetes/Cilium/MetalLB 복구까지 검증했다. 체크포인트를 완료한다.
 
 ## 다음 재개 지점
 
-1. 세 노드 inventory 파일을 저장소 Evidence로 수집한다.
-2. UUID/MAC 고유성과 재부팅 후 IP/containerd/chrony 유지 상태를 검증한다.
-3. Phase 3 P3인 MetalLB/Gateway API 설치로 이동한다.
+1. Hubble CLI flow export를 검증한다.
+2. Phase 3 P4 관측 스택 설치로 이동한다.

@@ -7,11 +7,11 @@
 | Pod 네트워크와 NetworkPolicy | Cilium |
 | Flow 관측과 L3/L4 drop | Hubble |
 | LoadBalancer IP | MetalLB |
-| 인바운드 API | 선택한 단일 Gateway API controller |
+| 인바운드 API | Cilium Gateway API controller |
 | 서비스 간 mTLS와 Mesh profile | Istio |
 | L7 retry/timeout | 앱 우선, 실험 시 Istio와 명시 비교 |
 
-Cilium과 Istio가 같은 정책을 중복 소유하지 않게 한다. Gateway controller는 호환성 검증 후 하나만 선택한다.
+Cilium과 Istio가 같은 정책을 중복 소유하지 않게 한다. 모든 profile은 `GatewayClass/cilium`을 사용하며 Istio ingress gateway는 기본 비교 경로에서 제외한다.
 
 ## 기본 흐름
 

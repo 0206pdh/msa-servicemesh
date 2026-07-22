@@ -1,0 +1,34 @@
+sourceCommit: 9cf3285756d2
+platform: linux/amd64
+registry: ghcr.io/0206pdh
+images:
+  kafka:
+    repository: apache/kafka
+    tag: 4.0.0
+    indexDigest: sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    digest: sha256:01b9a4030e54c6068e66eb3ba4cb82c0d89238629ef1c30d79b86036bf89b1b7
+  benchmarkGateway:
+    repository: ghcr.io/0206pdh/meshperf-benchmark-gateway
+    tag: 9cf3285756d2
+    indexDigest: sha256:93a8c87c26ff3725aebc08d809bdcc62845acb1ad44d8eb5c711f4757eee8d72
+    digest: sha256:4fe89712f7a901a39e58911d1e676f57ac521fa0bf7fb4762538ae027a6763cb
+  orchestratorService:
+    repository: ghcr.io/0206pdh/meshperf-orchestrator-service
+    tag: 9cf3285756d2
+    indexDigest: sha256:1b34560fd24fbae35b394229d40e763e964493ee5da8d53f5d62faaf8826daf4
+    digest: sha256:2374b3df465c7efd2ec200c95be721f4633af4234f6abd1a5e7990a857420246
+  workloadService:
+    repository: ghcr.io/0206pdh/meshperf-workload-service
+    tag: 9cf3285756d2
+    indexDigest: sha256:a668407379606d847f289386ba8e21e2d0e786940acdef7c38f6e425efd11e85
+    digest: sha256:3a65f770c14cb7cc814d17c40ed99ef17861d01d7c01200b04295e1819897226
+  producerService:
+    repository: ghcr.io/0206pdh/meshperf-producer-service
+    tag: 9cf3285756d2
+    indexDigest: sha256:1579187bb6264f49397aa13cb9995ba06be47f962f3e7e574d6459639b9450bb
+    digest: sha256:014655b86b0ff2f1ae549fb0169b850317bd68b32e449b849ae38211cda9a761
+  workerService:
+    repository: ghcr.io/0206pdh/meshperf-worker-service
+    tag: 9cf3285756d2
+    indexDigest: sha256:d790999fd65773f282955c39fd339d6f6f80c4c7d8fad7716882b8184d8d6754
+    digest: sha256:8cf7728a05934258bb13efa96df247be54644df14ec9ef03c1ec25c49e7a4a38

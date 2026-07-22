@@ -1,0 +1,36 @@
+{
+  "runId": "phase3-no-mesh-dry-run-v2",
+  "adapter": "kubernetes",
+  "profile": "NO_MESH",
+  "scenario": "SYNC_CHAIN",
+  "seed": 42,
+  "targetUrl": "http://192.168.200.100",
+  "workloadConfig": {
+    "hopCount": 3,
+    "payloadBytes": 1024,
+    "work": {
+      "delayMs": 1,
+      "delayDistribution": "FIXED",
+      "errorRate": 0,
+      "cpuMillis": 0,
+      "memoryBytes": 0,
+      "blockingIoMs": 0,
+      "seed": 42
+    }
+  },
+  "loadProfile": {
+    "executor": "CONSTANT_ARRIVAL_RATE",
+    "targetRps": 1,
+    "warmupSeconds": 5,
+    "durationSeconds": 10,
+    "repetitions": 1
+  },
+  "kubernetes": {
+    "namespace": "benchmark",
+    "prometheusNamespace": "observability",
+    "prometheusService": "monitoring-kube-prometheus-prometheus",
+    "expectedScrapeTargets": 7,
+    "minimumNodeMemoryAvailableBytes": 1073741824,
+    "telemetrySettleSeconds": 20
+  }
+}

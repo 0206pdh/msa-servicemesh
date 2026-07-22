@@ -1,0 +1,10 @@
+# MetalLB 0.16.1, L2-only lab baseline.
+speaker:
+  frr:
+    enabled: false
+frrk8s:
+  enabled: false
+
+prometheus:
+  serviceMonitor:
+    enabled: false
