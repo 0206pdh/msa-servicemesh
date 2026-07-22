@@ -6,7 +6,7 @@
 
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 1 — Benchmark Workload 구현
-- Application Step: A2 — bounded Workload Target 시작 전
+- Application Step: A3 — Sync Chain 시작 전
 - Status: ready
 - Last updated: 2026-07-22
 
@@ -23,9 +23,9 @@
 
 ## 다음 작업
 
-1. A2 `/workloads/target`의 request/response 계약 테스트를 작성한다.
-2. bounded delay/error/CPU/memory/I/O와 결정론적 seed를 구현한다.
-3. 실제 소비량 metric, checksum과 경계값을 검증한다.
+1. A3 `/workloads/chain` contract와 hop route를 구현한다.
+2. 절대 deadline을 남은 budget으로 전파하고 timeout/cancellation을 검증한다.
+3. hop별 trace와 완료 hop 수를 확인한다.
 
 ## 현재 한계
 

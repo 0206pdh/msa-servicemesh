@@ -12,7 +12,7 @@
 ## Phase 1 — Benchmark Workload
 
 - [x] A1 Java 25 공통 런타임, 관측 기능과 Compose E2E
-- [ ] A2 bounded Workload Target
+- [x] A2 bounded Workload Target
 - [ ] A3 Sync Chain과 deadline/cancellation
 - [ ] A4 Fan-out과 partial result
 - [ ] A5 Kafka Async Pipeline과 멱등성
