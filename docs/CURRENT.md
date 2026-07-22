@@ -6,7 +6,7 @@
 
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 3 — VMware Kubernetes 플랫폼 기반
-- Infrastructure Step: P1 — 3노드 공통 사전 준비 완료, kubeadm init 직전
+- Infrastructure Step: P1 — Control Plane 초기화 완료, Cilium 설치 직전
 - Status: in-progress
 - Last updated: 2026-07-22
 
@@ -26,12 +26,13 @@
 - [x] VMware Workstation 26.0.0과 Ubuntu 26.04 LTS VM 3대 구성
 - [x] `192.168.200.10~12` 고정 IP, SSH와 VMnet8 통신 구성
 - [x] swap/kernel/sysctl/containerd/Kubernetes CLI 공통 사전 준비
+- [x] kube-proxy를 제외한 Kubernetes 1.36 Control Plane 초기화
 
 ## 다음 작업
 
-1. 세 노드 inventory/버전/UUID/MAC/chrony 출력 Evidence를 수집한다.
-2. Control Plane kubeadm preflight 후 kube-proxy 없는 cluster를 초기화한다.
-3. Worker join 전 Cilium을 설치하고 API/network 상태를 검증한다.
+1. kubeconfig 설정 후 kube-proxy가 배포되지 않았는지 확인한다.
+2. Istio 호환 Cilium 설정을 설치하고 Control Plane을 `Ready`로 만든다.
+3. Worker 2대를 join하고 3노드/CNI/DNS 상태를 검증한다.
 
 ## 현재 한계
 

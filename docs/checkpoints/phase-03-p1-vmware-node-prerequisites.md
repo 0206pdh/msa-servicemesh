@@ -37,6 +37,9 @@ VMware의 Ubuntu 노드 3대를 고정 네트워크와 동일한 Kubernetes/cont
 - [ ] 세 노드 최종 검사 출력과 정확한 버전 Evidence 저장
 - [ ] UUID/MAC 고유성 Evidence 저장
 - [ ] 재부팅 후 IP/containerd/chrony 설정 유지 검증
+- [x] kubeadm Control Plane 초기화(`kube-proxy` 미설치)
+- [ ] Cilium 설치와 Control Plane `Ready`
+- [ ] Worker 2대 join과 3노드 `Ready`
 
 ## 판정
 
@@ -45,5 +48,5 @@ VMware의 Ubuntu 노드 3대를 고정 네트워크와 동일한 Kubernetes/cont
 ## 다음 재개 지점
 
 1. 세 노드 inventory/버전/UUID/MAC/시간 동기화 출력을 수집한다.
-2. Control Plane에서 kubeadm config를 생성하고 preflight를 통과한다.
-3. kube-proxy를 설치하지 않고 cluster를 초기화한 뒤 Cilium을 설치한다.
+2. Istio 호환 값을 고정해 Cilium을 설치한다.
+3. Control Plane `Ready` 확인 후 Worker를 join한다.
