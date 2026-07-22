@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 2 — 실험 자동화 로컬 구현 완료, VMware 검증 대기
-- Application Step: A1~A7 구현 완료
-- Status: validated-local
+- Overall Phase: Phase 3 — VMware Kubernetes 플랫폼 기반
+- Infrastructure Step: P1 — 3노드 공통 사전 준비 완료, kubeadm init 직전
+- Status: in-progress
 - Last updated: 2026-07-22
 
 ## 완료된 기준점
@@ -23,18 +23,22 @@
 - [x] A2~A6 bounded workload와 Compose 7-container E2E
 - [x] Phase 2 runner, k6 profile, Ground Truth/raw/summary 구현
 - [x] 같은 Compose smoke spec 3회 반복과 무효화 판정
+- [x] VMware Workstation 26.0.0과 Ubuntu 26.04 LTS VM 3대 구성
+- [x] `192.168.200.10~12` 고정 IP, SSH와 VMnet8 통신 구성
+- [x] swap/kernel/sysctl/containerd/Kubernetes CLI 공통 사전 준비
 
 ## 다음 작업
 
-1. Phase 3에서 VMware Kubernetes cluster와 관측 stack을 구축한다.
-2. Kubernetes adapter의 telemetry/headroom/fault cleanup gate를 실측한다.
-3. 유효한 No Mesh baseline 측정 전에는 개선 구현을 시작하지 않는다.
+1. 세 노드 inventory/버전/UUID/MAC/chrony 출력 Evidence를 수집한다.
+2. Control Plane kubeadm preflight 후 kube-proxy 없는 cluster를 초기화한다.
+3. Worker join 전 Cilium을 설치하고 API/network 상태를 검증한다.
 
 ## 현재 한계
 
 - 성능 측정값은 아직 없다.
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
 - Kubernetes telemetry/headroom/fault cleanup 검증은 Phase 3 환경이 있어야 완료된다.
+- VM 사전 준비는 사용자 확인 상태이며 최종 명령 출력 Evidence는 아직 저장하지 않았다.
 - Control Plane 인증 상세는 Phase 3 전에 ADR로 확정한다.
 
 ## 마지막 검증

@@ -32,6 +32,9 @@
 
 ## Phase 3 — 플랫폼 기반
 
+- [x] VMware 3노드, 고정 IP와 OS/containerd/Kubernetes 사전 준비
+- [ ] 노드 inventory/버전/시간 동기화 Evidence
+- [ ] kubeadm Control Plane과 Worker join
 - [ ] VMware/Kubernetes 버전과 자원 기록
 - [ ] Cilium/Hubble, MetalLB, Gateway API
 - [ ] Prometheus/Grafana/Loki/Tempo/OTel
