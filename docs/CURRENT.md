@@ -6,8 +6,8 @@
 
 - Project: Mesh Performance Lab
 - Overall Phase: Phase 1 — Benchmark Workload 구현
-- Application Step: A1 — 공통 런타임 골격 진행 중
-- Status: in-progress
+- Application Step: A2 — bounded Workload Target 시작 전
+- Status: ready
 - Last updated: 2026-07-22
 
 ## 완료된 기준점
@@ -23,13 +23,13 @@
 
 ## 다음 작업
 
-1. A1의 공통 metrics/tracing, run ID와 immutable config snapshot을 구현한다.
-2. A1 체크리스트와 Compose E2E를 검증하고 Evidence를 작성한다.
-3. A2 `/workloads/target` 계약 테스트와 결정론적 seed 구현으로 이동한다.
+1. A2 `/workloads/target`의 request/response 계약 테스트를 작성한다.
+2. bounded delay/error/CPU/memory/I/O와 결정론적 seed를 구현한다.
+3. 실제 소비량 metric, checksum과 경계값을 검증한다.
 
 ## 현재 한계
 
-- 실제 Workload API는 ping 골격 외에 구현되지 않았고 A1 공통 관측 기능도 미완료다.
+- 실제 Workload API는 ping 골격 외에 구현되지 않았다.
 - 성능 측정값은 아직 없다.
 - Control Plane 인증 상세는 Phase 3 전에 ADR로 확정한다.
 
@@ -37,6 +37,7 @@
 
 - `java -version`: Temurin 25.0.3
 - Java 서비스 5개 `gradlew test`: passed
+- Compose 6개 healthy, ID/trace 전파와 config/Prometheus E2E: passed
 - Git: `main`과 `origin/main` 동기화
 - Latest commit at checkpoint creation: `1d5384c`
 

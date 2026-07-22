@@ -15,7 +15,8 @@ management:
       show-details: never
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
 mesh-perf:
+  image-digest: ${IMAGE_DIGEST:local}
   orchestrator:
     base-url: ${ORCHESTRATOR_BASE_URL:http://localhost:8081}

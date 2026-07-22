@@ -1,6 +1,3 @@
 package io.meshperf.producer;
-import org.junit.jupiter.api.Test;
-class ProducerApplicationTests {
-    @Test void applicationClassIsLoadable() { ProducerApplication.class.getName(); }
-}
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry; import org.junit.jupiter.api.Test; import org.springframework.mock.web.*; import static org.assertj.core.api.Assertions.assertThat;
+class ProducerApplicationTests {@Test void rejectsOversizedCorrelationId(){var f=new CorrelationIdFilter(new SimpleMeterRegistry());var q=new MockHttpServletRequest();q.addHeader(CorrelationIdFilter.HEADER,"x".repeat(101));var r=new MockHttpServletResponse();try{f.doFilter(q,r,new MockFilterChain());}catch(Exception e){throw new AssertionError(e);}assertThat(r.getStatus()).isEqualTo(400);}}

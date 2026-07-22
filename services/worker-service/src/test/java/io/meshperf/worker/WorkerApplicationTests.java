@@ -1,6 +1,3 @@
 package io.meshperf.worker;
-import org.junit.jupiter.api.Test;
-class WorkerApplicationTests {
-    @Test void applicationClassIsLoadable() { WorkerApplication.class.getName(); }
-}
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry; import org.junit.jupiter.api.Test; import org.springframework.mock.web.*; import static org.assertj.core.api.Assertions.assertThat;
+class WorkerApplicationTests {@Test void acceptsBoundedRequestContext(){var f=new CorrelationIdFilter(new SimpleMeterRegistry());var q=new MockHttpServletRequest();q.addHeader(CorrelationIdFilter.HEADER,"cor-1");q.addHeader(CorrelationIdFilter.RUN_HEADER,"run_1.2");var r=new MockHttpServletResponse();try{f.doFilter(q,r,new MockFilterChain());}catch(Exception e){throw new AssertionError(e);}assertThat(r.getStatus()).isEqualTo(200);}}

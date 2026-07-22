@@ -1,6 +1,3 @@
 package io.meshperf.workload;
-import org.junit.jupiter.api.Test;
-class WorkloadApplicationTests {
-    @Test void applicationClassIsLoadable() { WorkloadApplication.class.getName(); }
-}
-
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry; import org.junit.jupiter.api.Test; import org.springframework.mock.web.*; import static org.assertj.core.api.Assertions.assertThat;
+class WorkloadApplicationTests {@Test void echoesRunId(){var f=new CorrelationIdFilter(new SimpleMeterRegistry());var q=new MockHttpServletRequest();q.addHeader(CorrelationIdFilter.RUN_HEADER,"run-1");var r=new MockHttpServletResponse();try{f.doFilter(q,r,new MockFilterChain());}catch(Exception e){throw new AssertionError(e);}assertThat(r.getHeader(CorrelationIdFilter.RUN_HEADER)).isEqualTo("run-1");}}

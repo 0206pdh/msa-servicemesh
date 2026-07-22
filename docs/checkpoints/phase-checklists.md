@@ -11,7 +11,7 @@
 
 ## Phase 1 — Benchmark Workload
 
-- [ ] A1 Java 25 공통 런타임, 관측 기능과 Compose E2E
+- [x] A1 Java 25 공통 런타임, 관측 기능과 Compose E2E
 - [ ] A2 bounded Workload Target
 - [ ] A3 Sync Chain과 deadline/cancellation
 - [ ] A4 Fan-out과 partial result
