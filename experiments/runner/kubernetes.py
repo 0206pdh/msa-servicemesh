@@ -12,6 +12,16 @@ from urllib.parse import quote
 class KubernetesAdapter:
     """Read-only Kubernetes and Prometheus evidence collector."""
 
+    SYNC_CHAIN_POD_PREFIXES = (
+        "benchmark-gateway-",
+        "orchestrator-service-",
+        "producer-service-",
+        "worker-service-",
+        "workload-a-",
+        "workload-b-",
+        "workload-c-",
+    )
+
     def __init__(self, root: Path, spec: dict, command_runner=subprocess.run):
         self.root = root
         self.spec = spec
@@ -105,7 +115,7 @@ class KubernetesAdapter:
 
     def gate(self, snapshot: dict, require_zero_restarts: bool = False) -> list[str]:
         factors: list[str] = []
-        pods = snapshot["pods"]
+        pods = self._measurement_pods(snapshot)
         if not pods or any(not pod["ready"] or pod["phase"] != "Running" for pod in pods):
             factors.append("WORKLOAD_NOT_READY")
         if require_zero_restarts and any(pod["restarts"] != 0 for pod in pods):
@@ -122,12 +132,23 @@ class KubernetesAdapter:
             factors.append("NODE_TIME_NOT_SYNCHRONIZED")
         return factors
 
-    @staticmethod
-    def restart_delta_gate(before: dict, after: dict) -> list[str]:
-        before_restarts = {pod["name"]: pod["restarts"] for pod in before.get("pods", [])}
+    def _measurement_pods(self, snapshot: dict) -> list[dict]:
+        pods = snapshot.get("pods", [])
+        if self.spec.get("scenario") != "SYNC_CHAIN":
+            return pods
+        return [
+            pod for pod in pods
+            if pod.get("name", "").startswith(self.SYNC_CHAIN_POD_PREFIXES)
+        ]
+
+    def restart_delta_gate(self, before: dict, after: dict) -> list[str]:
+        before_restarts = {
+            pod["name"]: pod["restarts"] for pod in self._measurement_pods(before)
+        }
         increased = [
             pod["name"] for pod in after.get("pods", [])
-            if pod["restarts"] > before_restarts.get(pod["name"], 0)
+            if pod in self._measurement_pods(after)
+            and pod["restarts"] > before_restarts.get(pod["name"], 0)
         ]
         return ["WORKLOAD_RESTARTS_INCREASED"] if increased else []
 

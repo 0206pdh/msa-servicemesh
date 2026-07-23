@@ -47,14 +47,51 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(summary["metrics"]["latencyMs"]["p95"], 2)
 
     def test_restart_gate_uses_measurement_delta(self):
+        adapter = KubernetesAdapter(Path("."), {"scenario": "OTHER"})
         before = {"pods": [{"name": "workload-a", "restarts": 2}]}
         unchanged = {"pods": [{"name": "workload-a", "restarts": 2}]}
         increased = {"pods": [{"name": "workload-a", "restarts": 3}]}
-        self.assertEqual(KubernetesAdapter.restart_delta_gate(before, unchanged), [])
+        self.assertEqual(adapter.restart_delta_gate(before, unchanged), [])
         self.assertEqual(
-            KubernetesAdapter.restart_delta_gate(before, increased),
+            adapter.restart_delta_gate(before, increased),
             ["WORKLOAD_RESTARTS_INCREASED"],
         )
+
+    def test_sync_chain_gate_ignores_unrelated_kafka_readiness(self):
+        adapter = KubernetesAdapter(Path("."), {"scenario": "SYNC_CHAIN"})
+        pods = [
+            {"name": prefix + "pod", "phase": "Running", "ready": True, "restarts": 0}
+            for prefix in adapter.SYNC_CHAIN_POD_PREFIXES
+        ]
+        pods.append({"name": "kafka-0", "phase": "Running", "ready": False, "restarts": 2})
+        snapshot = {
+            "nodes": [{"name": "node-1"}],
+            "pods": pods,
+            "prometheus": {
+                "healthyScrapeTargets": 7,
+                "nodeMemoryAvailable": [{"value": 2_000_000_000}],
+                "nodeTimeSynchronized": [{"value": 1}],
+            },
+        }
+        self.assertEqual(adapter.gate(snapshot), [])
+
+    def test_sync_chain_gate_still_rejects_unready_chain_pod(self):
+        adapter = KubernetesAdapter(Path("."), {"scenario": "SYNC_CHAIN"})
+        pods = [
+            {"name": prefix + "pod", "phase": "Running", "ready": True, "restarts": 0}
+            for prefix in adapter.SYNC_CHAIN_POD_PREFIXES
+        ]
+        pods[-1]["ready"] = False
+        snapshot = {
+            "nodes": [{"name": "node-1"}],
+            "pods": pods,
+            "prometheus": {
+                "healthyScrapeTargets": 7,
+                "nodeMemoryAvailable": [{"value": 2_000_000_000}],
+                "nodeTimeSynchronized": [{"value": 1}],
+            },
+        }
+        self.assertEqual(adapter.gate(snapshot), ["WORKLOAD_NOT_READY"])
 
 
 if __name__ == "__main__": unittest.main()
