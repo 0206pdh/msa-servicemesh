@@ -14,12 +14,13 @@ from experiments.runner.cli import Runner
 
 CONDITIONS = {"nominal": 8, "high": 17, "near-saturation": 22}
 MINIMUM_REQUESTS = 20_000
+PLANNED_REQUESTS = 20_200
 MINIMUM_DURATION_SECONDS = 600
 MAXIMUM_DURATION_SECONDS = 2_700
 
 
 def measurement_duration(target_rps: int) -> int:
-    required = math.ceil(MINIMUM_REQUESTS / target_rps)
+    required = math.ceil(PLANNED_REQUESTS / target_rps)
     return min(MAXIMUM_DURATION_SECONDS, max(MINIMUM_DURATION_SECONDS, required))
 
 
@@ -31,6 +32,7 @@ def formal_spec(condition: str, target_rps: int) -> dict:
         "warmupSeconds": 180,
         "durationSeconds": measurement_duration(target_rps),
         "minimumRequests": MINIMUM_REQUESTS,
+        "preAllocatedVUs": max(20, target_rps * 3),
         "repetitions": 1,
     })
     return spec

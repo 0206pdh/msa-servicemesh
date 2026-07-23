@@ -7,16 +7,17 @@ from experiments.baseline import BaselineMeasurement, block_order, formal_spec, 
 
 class BaselineMeasurementTests(unittest.TestCase):
     def test_duration_meets_twenty_thousand_request_floor(self):
-        self.assertEqual(measurement_duration(8), 2500)
-        self.assertEqual(measurement_duration(17), 1177)
-        self.assertEqual(measurement_duration(22), 910)
+        self.assertEqual(measurement_duration(8), 2525)
+        self.assertEqual(measurement_duration(17), 1189)
+        self.assertEqual(measurement_duration(22), 919)
 
     def test_formal_spec_uses_canonical_chain_and_request_floor(self):
         spec = formal_spec("nominal", 8)
         self.assertEqual(spec["scenario"], "SYNC_CHAIN")
         self.assertEqual(spec["workloadConfig"]["hopCount"], 3)
         self.assertEqual(spec["loadProfile"]["minimumRequests"], 20_000)
-        self.assertEqual(spec["loadProfile"]["durationSeconds"], 2500)
+        self.assertEqual(spec["loadProfile"]["durationSeconds"], 2525)
+        self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 24)
         self.assertEqual(spec["loadProfile"]["warmupSeconds"], 180)
 
     def test_block_order_is_seeded_and_complete(self):

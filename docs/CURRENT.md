@@ -94,7 +94,8 @@
 - Runner final dry-run: commit `3848517`, status `COMPLETED`, invalidating factor 없음
 - Git: Phase 3 구현 `3848517`, final Evidence `2d9fa1a`
 - Phase 4 policy: core 조건 10~15회, run당 최소 20,000 request, precision stop rule
-- Formal duration: nominal/high/near-saturation 8/17/22 RPS에서 2,500/1,177/910초
+- Formal duration: nominal/high/near-saturation 8/17/22 RPS에서 2,525/1,189/919초
+- Formal VUs: 관측된 2.61초 tail을 수용하도록 24/51/66 pre-allocated VUs
 - Canonical capacity: C*=28 RPS, first failing=30 RPS, interval width 7.14%
 - Canonical operating points: 3/8/17/22 RPS
 - Low 3 RPS는 sanity/linearity 전용이며 정식 cross-profile 반복에서 제외

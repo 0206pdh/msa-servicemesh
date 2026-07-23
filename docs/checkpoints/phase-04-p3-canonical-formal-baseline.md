@@ -12,7 +12,8 @@
 - SYNC_CHAIN 3 hop, payload 1 KiB, fixed hop delay 1 ms
 - nominal/high/near-saturation: 8/17/22 RPS
 - warm-up 180초
-- 최소 20,000 request: 2,500/1,177/910초
+- 최소 20,000 request와 1% 일정 여유: 2,525/1,189/919초
+- pre-allocated/max VUs: 24/51/66
 - seeded randomized complete block, seed 42
 - 조건별 최소 10회, 최대 15회
 - session당 최대 5 block, 최소 2 session
@@ -27,6 +28,7 @@
 - [x] resume 가능한 randomized-block 실행기
 - [x] 8 RPS에서 20,000 request를 만족하도록 최대 측정 시간을 2,700초로 조정
 - [x] VM 재부팅 이전 restart count는 허용하고 측정 중 증가분만 무효화하도록 Gate 수정
+- [x] 22 RPS에서 관측된 2.61초 tail을 수용하도록 `3 × RPS` VU와 1% request 여유 적용
 - [ ] session 1 유효 block 수집
 - [ ] session 2 이상에서 조건별 유효 run 10회 확보
 - [ ] bootstrap 95% CI 정밀도 판정
