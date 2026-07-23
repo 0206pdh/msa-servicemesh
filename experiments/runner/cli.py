@@ -96,6 +96,7 @@ class Runner:
             ) if adapter else None
             hubble_flows = adapter.hubble_flows(spec["loadProfile"]["durationSeconds"] + 30) if adapter else []
             cleanup_factors = (adapter.cleanup_gate() + adapter.window_gate(window_snapshot)
+                               + adapter.restart_delta_gate(preflight, postflight)
                                + adapter.telemetry_gate(trace_marker, log_marker, hubble_flows)) if adapter else []
             if adapter:
                 self._write(raw / "kubernetes-postflight.json", postflight)

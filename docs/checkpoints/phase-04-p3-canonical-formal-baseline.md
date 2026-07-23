@@ -26,6 +26,7 @@
 - [x] Prometheus target 7, Tempo trace, Hubble 3/3 검증
 - [x] resume 가능한 randomized-block 실행기
 - [x] 8 RPS에서 20,000 request를 만족하도록 최대 측정 시간을 2,700초로 조정
+- [x] VM 재부팅 이전 restart count는 허용하고 측정 중 증가분만 무효화하도록 Gate 수정
 - [ ] session 1 유효 block 수집
 - [ ] session 2 이상에서 조건별 유효 run 10회 확보
 - [ ] bootstrap 95% CI 정밀도 판정

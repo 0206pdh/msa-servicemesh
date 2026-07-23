@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from experiments.runner.cli import Runner, validate_spec
+from experiments.runner.kubernetes import KubernetesAdapter
 
 
 class RunnerTests(unittest.TestCase):
@@ -44,6 +45,16 @@ class RunnerTests(unittest.TestCase):
             summary = Runner(root)._summary(spec, raw.parent, "start", "end")
             self.assertEqual(summary["sampleCount"], 5)
             self.assertEqual(summary["metrics"]["latencyMs"]["p95"], 2)
+
+    def test_restart_gate_uses_measurement_delta(self):
+        before = {"pods": [{"name": "workload-a", "restarts": 2}]}
+        unchanged = {"pods": [{"name": "workload-a", "restarts": 2}]}
+        increased = {"pods": [{"name": "workload-a", "restarts": 3}]}
+        self.assertEqual(KubernetesAdapter.restart_delta_gate(before, unchanged), [])
+        self.assertEqual(
+            KubernetesAdapter.restart_delta_gate(before, increased),
+            ["WORKLOAD_RESTARTS_INCREASED"],
+        )
 
 
 if __name__ == "__main__": unittest.main()

@@ -103,7 +103,7 @@ class KubernetesAdapter:
         return [{"labels": item.get("metric", {}), "value": float(item["value"][1])}
                 for item in response.get("data", {}).get("result", [])]
 
-    def gate(self, snapshot: dict, require_zero_restarts: bool = True) -> list[str]:
+    def gate(self, snapshot: dict, require_zero_restarts: bool = False) -> list[str]:
         factors: list[str] = []
         pods = snapshot["pods"]
         if not pods or any(not pod["ready"] or pod["phase"] != "Running" for pod in pods):
@@ -121,6 +121,15 @@ class KubernetesAdapter:
         if len(sync) < len(snapshot["nodes"]) or any(item["value"] != 1 for item in sync):
             factors.append("NODE_TIME_NOT_SYNCHRONIZED")
         return factors
+
+    @staticmethod
+    def restart_delta_gate(before: dict, after: dict) -> list[str]:
+        before_restarts = {pod["name"]: pod["restarts"] for pod in before.get("pods", [])}
+        increased = [
+            pod["name"] for pod in after.get("pods", [])
+            if pod["restarts"] > before_restarts.get(pod["name"], 0)
+        ]
+        return ["WORKLOAD_RESTARTS_INCREASED"] if increased else []
 
     def cleanup_gate(self) -> list[str]:
         pods = self.kubectl(
