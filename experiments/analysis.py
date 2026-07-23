@@ -80,10 +80,12 @@ def analyze(condition_dir: Path, seed: int = 42) -> dict:
     for path in sorted(condition_dir.glob("repeat-*/summary.json")):
         summary = json.loads(path.read_text(encoding="utf-8"))
         manifest_path = path.parent / "manifest.json"
-        if manifest_path.exists():
-            fingerprints.add(json.loads(manifest_path.read_text(encoding="utf-8")).get("configFingerprint"))
         if summary.get("status") == "COMPLETED":
             summaries.append(summary)
+            if manifest_path.exists():
+                fingerprints.add(
+                    json.loads(manifest_path.read_text(encoding="utf-8")).get("configFingerprint")
+                )
         else:
             invalid.append({"path": str(path), "factors": summary.get("invalidatingFactors", [])})
     if len(fingerprints - {None}) > 1:

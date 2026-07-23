@@ -39,6 +39,34 @@ class AnalysisTests(unittest.TestCase):
                 (repeat / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
             self.assertEqual(analyze(root)["decision"], "STOP_PRECISION_REACHED")
 
+    def test_invalid_run_fingerprint_does_not_contaminate_valid_condition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, status, fingerprint in (
+                (1, "INVALID", "old-config"),
+                (2, "COMPLETED", "final-config"),
+            ):
+                repeat = root / f"repeat-{index:02d}"
+                repeat.mkdir()
+                summary = {
+                    "status": status,
+                    "sampleCount": 1000,
+                    "invalidatingFactors": ["TEST_INVALID"] if status == "INVALID" else [],
+                    "metrics": {
+                        "throughputRps": 10,
+                        "errorRate": 0,
+                        "latencyMs": {"p50": 10, "p95": 20, "p99": 30},
+                    },
+                    "resources": {"application": {"cpuCoreSeconds": 10}},
+                }
+                (repeat / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+                (repeat / "manifest.json").write_text(
+                    json.dumps({"configFingerprint": fingerprint}), encoding="utf-8"
+                )
+            result = analyze(root)
+            self.assertEqual(result["validRuns"], 1)
+            self.assertEqual(result["configFingerprints"], ["final-config"])
+
 
 if __name__ == "__main__":
     unittest.main()

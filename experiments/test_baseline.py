@@ -17,7 +17,7 @@ class BaselineMeasurementTests(unittest.TestCase):
         self.assertEqual(spec["workloadConfig"]["hopCount"], 3)
         self.assertEqual(spec["loadProfile"]["minimumRequests"], 20_000)
         self.assertEqual(spec["loadProfile"]["durationSeconds"], 2525)
-        self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 24)
+        self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 128)
         self.assertEqual(spec["loadProfile"]["warmupSeconds"], 180)
 
     def test_block_order_is_seeded_and_complete(self):

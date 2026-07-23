@@ -32,7 +32,7 @@ def formal_spec(condition: str, target_rps: int) -> dict:
         "warmupSeconds": 180,
         "durationSeconds": measurement_duration(target_rps),
         "minimumRequests": MINIMUM_REQUESTS,
-        "preAllocatedVUs": max(20, target_rps * 3),
+        "preAllocatedVUs": 128,
         "repetitions": 1,
     })
     return spec
