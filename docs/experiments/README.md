@@ -97,7 +97,7 @@ Decision rule
 - 탐색점: 1회, geometric search 후 binary refinement
 - core steady-state: 최소 10회, 최대 15회
 - 종료: p95/CPU 5%, p99 10% relative CI half-width
-- run 내부: 최소 20,000 request와 600~1,800초 측정
+- run 내부: 최소 20,000 request와 600~2,700초 측정
 - 유효 이상치 삭제 금지, 무효 run 원본 보존
 - 조건 순서는 seeded randomized complete block으로 배치
 

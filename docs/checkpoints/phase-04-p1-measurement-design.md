@@ -15,7 +15,7 @@
 - [x] C* 기반 10/30/60/80% 부하 단계
 - [x] core 조건 최소 10회·최대 15회
 - [x] p95/p99/CPU bootstrap CI 정밀도 Gate
-- [x] run당 최소 20,000 request와 600~1,800초
+- [x] run당 최소 20,000 request와 600~2,700초
 - [x] randomized complete block과 session drift 통제
 - [x] k6 고정 VU 사전할당
 - [x] 반복 집계와 자동 정지 판정 구현·unit test

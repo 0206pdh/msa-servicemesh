@@ -25,6 +25,7 @@ Phase 진행 상태, 근거와 다음 시작점을 저장소에 남겨 세션이
 
 - [측정 반복과 부하 설계](phase-04-p1-measurement-design.md): 완료
 - [Canonical chain capacity discovery](phase-04-p2-chain-capacity-discovery.md): measured
+- [Canonical No Mesh formal baseline](phase-04-p3-canonical-formal-baseline.md): in-progress
 
 ## 갱신 시점
 

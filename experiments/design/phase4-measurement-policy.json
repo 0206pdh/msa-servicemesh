@@ -28,7 +28,7 @@
     "maximumValidRuns": 15,
     "warmupSeconds": 180,
     "minimumMeasurementSeconds": 600,
-    "maximumMeasurementSeconds": 1800,
+    "maximumMeasurementSeconds": 2700,
     "minimumRequestsPerRun": 20000,
     "cooldownSeconds": 120,
     "bootstrapResamples": 10000,
@@ -43,6 +43,11 @@
     "scheduling": "seeded-randomized-complete-blocks",
     "maximumRunsPerSession": 5,
     "minimumSessions": 2
+  },
+  "lowLoadSanity": {
+    "capacityFraction": 0.10,
+    "formalCrossProfileComparison": false,
+    "purpose": "linearity-and-telemetry-sanity"
   },
   "coreCrossProfileMatrix": [
     {"scenario": "SYNC_CHAIN", "variant": "hop-3-payload-1KiB-delay-1ms"},

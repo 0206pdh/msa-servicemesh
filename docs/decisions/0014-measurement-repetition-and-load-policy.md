@@ -37,7 +37,7 @@ Capacity discovery는 10 RPS에서 시작해 2배씩 증가하며 각 점을 war
 
 ### 3. run 내부 표본 수도 고정한다
 
-각 run은 warm-up 180초 후 최소 600초 측정하며 요청 수가 20,000개 미만이면 최대 1,800초까지 늘린다. 측정 시간은 `max(600, ceil(20000 / targetRps))`로 계산하고 1,800초로 제한한다. 이는 p99 영역에 기대 표본 약 200개 이상을 확보하기 위한 프로젝트 기준이다.
+각 run은 warm-up 180초 후 최소 600초 측정하며 요청 수 20,000개를 확보한다. canonical nominal 8 RPS에서도 표본 기준을 만족하도록 측정 시간은 `min(2700, max(600, ceil(20000 / targetRps)))`로 계산한다. 이는 p99 영역에 기대 표본 약 200개 이상을 확보하기 위한 프로젝트 기준이다.
 
 ### 4. 시간 drift를 block으로 통제한다
 
@@ -50,7 +50,7 @@ Capacity discovery는 10 RPS에서 시작해 2배씩 증가하며 각 점을 war
 - PAYLOAD: 64 KiB, identity, streaming
 - ASYNC_PIPELINE: batch 10, processing 10 ms, payload 1 KiB
 
-각 core scenario는 nominal/high/near-saturation 30/60/80% C*를 정식 비교점으로 사용한다. 10% low는 sanity/linearity 기준으로 수집하되 cross-profile 핵심 결론에는 필요할 때만 포함한다.
+각 core scenario는 nominal/high/near-saturation 30/60/80% C*를 정식 비교점으로 사용한다. 10% low는 sanity/linearity 기준으로 별도 수집하며 20,000 request 정식 반복과 cross-profile 핵심 결론에서는 제외한다.
 
 ## 결과
 

@@ -61,7 +61,7 @@
 
 ## 다음 작업
 
-1. SYNC_CHAIN canonical condition을 3/8/17/22 RPS에서 seeded randomized block으로 측정한다.
+1. SYNC_CHAIN canonical condition을 8/17/22 RPS에서 seeded randomized block으로 정식 측정한다.
 2. 조건별 유효 run을 최소 10회 수집하고 bootstrap 95% CI 정밀도 Gate를 평가한다.
 3. 최대 15회에도 정밀도 기준 미달이면 `INCONCLUSIVE_MAX_RUNS`로 기록한다.
 
@@ -94,8 +94,10 @@
 - Runner final dry-run: commit `3848517`, status `COMPLETED`, invalidating factor 없음
 - Git: Phase 3 구현 `3848517`, final Evidence `2d9fa1a`
 - Phase 4 policy: core 조건 10~15회, run당 최소 20,000 request, precision stop rule
+- Formal duration: nominal/high/near-saturation 8/17/22 RPS에서 2,500/1,177/910초
 - Canonical capacity: C*=28 RPS, first failing=30 RPS, interval width 7.14%
 - Canonical operating points: 3/8/17/22 RPS
+- Low 3 RPS는 sanity/linearity 전용이며 정식 cross-profile 반복에서 제외
 - Capacity retry: 27/28 RPS `COMPLETED`, telemetry factor 없음, Tempo restart 0
 
 ## 재개 절차
