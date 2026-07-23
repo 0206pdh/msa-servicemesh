@@ -29,6 +29,7 @@
 - [x] 8 RPS에서 20,000 request를 만족하도록 최대 측정 시간을 2,700초로 조정
 - [x] VM 재부팅 이전 restart count는 허용하고 측정 중 증가분만 무효화하도록 Gate 수정
 - [x] 22 RPS에서 관측된 2.61초 tail과 조건 간 공정성을 위해 모든 정식 조건에 128 VU 고정
+- [x] 최종 128 VU fingerprint만 통계에 포함하고 이전 설정은 `SUPERSEDED_CONFIG_FINGERPRINT`로 보존
 - [ ] session 1 유효 block 수집
 - [ ] session 2 이상에서 조건별 유효 run 10회 확보
 - [ ] bootstrap 95% CI 정밀도 판정

@@ -73,21 +73,27 @@ def extract(summary: dict) -> dict[str, float | None]:
     }
 
 
-def analyze(condition_dir: Path, seed: int = 42) -> dict:
+def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | None = None) -> dict:
     summaries = []
     invalid = []
     fingerprints = set()
     for path in sorted(condition_dir.glob("repeat-*/summary.json")):
         summary = json.loads(path.read_text(encoding="utf-8"))
         manifest_path = path.parent / "manifest.json"
-        if summary.get("status") == "COMPLETED":
+        fingerprint = (
+            json.loads(manifest_path.read_text(encoding="utf-8")).get("configFingerprint")
+            if manifest_path.exists() else None
+        )
+        if summary.get("status") == "COMPLETED" and (
+            required_fingerprint is None or fingerprint == required_fingerprint
+        ):
             summaries.append(summary)
-            if manifest_path.exists():
-                fingerprints.add(
-                    json.loads(manifest_path.read_text(encoding="utf-8")).get("configFingerprint")
-                )
+            fingerprints.add(fingerprint)
         else:
-            invalid.append({"path": str(path), "factors": summary.get("invalidatingFactors", [])})
+            factors = list(summary.get("invalidatingFactors", []))
+            if summary.get("status") == "COMPLETED" and required_fingerprint != fingerprint:
+                factors.append("SUPERSEDED_CONFIG_FINGERPRINT")
+            invalid.append({"path": str(path), "factors": factors})
     if len(fingerprints - {None}) > 1:
         raise ValueError("condition contains multiple config fingerprints")
     extracted = [extract(summary) for summary in summaries]

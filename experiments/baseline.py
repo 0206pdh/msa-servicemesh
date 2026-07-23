@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import random
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from experiments.analysis import analyze
 from experiments.capacity import discovery_spec
-from experiments.runner.cli import Runner
+from experiments.runner.cli import Runner, canonical
 
 
 CONDITIONS = {"nominal": 8, "high": 17, "near-saturation": 22}
@@ -85,7 +86,27 @@ class BaselineMeasurement:
 
     def _decision(self, condition: str) -> dict:
         directory = self._condition_dir(condition)
-        return analyze(directory) if directory.exists() else {"validRuns": 0, "decision": "CONTINUE"}
+        spec = formal_spec(condition, CONDITIONS[condition])
+        fingerprint = hashlib.sha256(canonical(spec).encode()).hexdigest()
+        return (
+            analyze(directory, required_fingerprint=fingerprint)
+            if directory.exists() else {"validRuns": 0, "decision": "CONTINUE"}
+        )
+
+    def _latest_selected_run(self, condition: str) -> tuple[int, Path, dict] | None:
+        spec = formal_spec(condition, CONDITIONS[condition])
+        selected = hashlib.sha256(canonical(spec).encode()).hexdigest()
+        directory = self._condition_dir(condition)
+        for path in sorted(directory.glob("repeat-*"), reverse=True) if directory.exists() else []:
+            summary_path = path / "summary.json"
+            manifest_path = path / "manifest.json"
+            if not summary_path.exists() or not manifest_path.exists():
+                continue
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if summary.get("status") == "COMPLETED" and manifest.get("configFingerprint") == selected:
+                return int(path.name.split("-")[-1]), path, summary
+        return None
 
     def execute_session(self, session: int, blocks: int) -> dict:
         session_state = next(
@@ -105,13 +126,53 @@ class BaselineMeasurement:
                 continue
             global_block = (session - 1) * 5 + block
             order = block_order(global_block, self.state["seed"])
-            block_state = {
-                "block": block, "globalBlock": global_block, "order": order,
-                "runs": [], "status": "RUNNING",
-            }
-            session_state["blocks"].append(block_state)
+            block_state = next(
+                (item for item in reversed(session_state["blocks"])
+                 if item["block"] == block and item.get("status") != "COMPLETED"),
+                None,
+            )
+            if block_state is None:
+                block_state = {
+                    "block": block, "globalBlock": global_block, "order": order,
+                    "runs": [], "status": "RUNNING",
+                }
+                session_state["blocks"].append(block_state)
             self._write()
+            completed_conditions = {
+                item["condition"] for item in block_state["runs"]
+                if item.get("status") == "COMPLETED"
+            }
+            assigned = {
+                condition: sum(
+                    1 for prior_block in session_state["blocks"]
+                    for item in prior_block["runs"]
+                    if item.get("condition") == condition and item.get("status") == "COMPLETED"
+                )
+                for condition in CONDITIONS
+            }
             for condition in order:
+                decision = self._decision(condition)
+                if condition in completed_conditions or decision["validRuns"] <= assigned[condition]:
+                    continue
+                recovered = self._latest_selected_run(condition)
+                if recovered is None:
+                    continue
+                repeat, run_dir, summary = recovered
+                block_state["runs"].append({
+                    "condition": condition,
+                    "targetRps": CONDITIONS[condition],
+                    "repeat": repeat,
+                    "runDir": str(run_dir.relative_to(self.root)),
+                    "status": summary["status"],
+                    "validRuns": decision["validRuns"],
+                    "decision": decision["decision"],
+                    "recovered": True,
+                })
+                completed_conditions.add(condition)
+                self._write()
+            for condition in order:
+                if condition in completed_conditions:
+                    continue
                 before = self._decision(condition)
                 if before["decision"] != "CONTINUE":
                     block_state["runs"].append({

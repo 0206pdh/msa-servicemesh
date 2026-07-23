@@ -67,6 +67,34 @@ class AnalysisTests(unittest.TestCase):
             self.assertEqual(result["validRuns"], 1)
             self.assertEqual(result["configFingerprints"], ["final-config"])
 
+    def test_required_fingerprint_supersedes_completed_old_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index, fingerprint in ((1, "old-config"), (2, "final-config")):
+                repeat = root / f"repeat-{index:02d}"
+                repeat.mkdir()
+                summary = {
+                    "status": "COMPLETED",
+                    "sampleCount": 1000,
+                    "invalidatingFactors": [],
+                    "metrics": {
+                        "throughputRps": 10,
+                        "errorRate": 0,
+                        "latencyMs": {"p50": 10, "p95": 20, "p99": 30},
+                    },
+                    "resources": {"application": {"cpuCoreSeconds": 10}},
+                }
+                (repeat / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+                (repeat / "manifest.json").write_text(
+                    json.dumps({"configFingerprint": fingerprint}), encoding="utf-8"
+                )
+            result = analyze(root, required_fingerprint="final-config")
+            self.assertEqual(result["validRuns"], 1)
+            self.assertIn(
+                "SUPERSEDED_CONFIG_FINGERPRINT",
+                result["invalidRuns"][0]["factors"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
