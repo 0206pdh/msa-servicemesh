@@ -100,6 +100,7 @@
 - Canonical operating points: 3/8/17/22 RPS
 - Low 3 RPS는 sanity/linearity 전용이며 정식 cross-profile 반복에서 제외
 - Capacity retry: 27/28 RPS `COMPLETED`, telemetry factor 없음, Tempo restart 0
+- Formal baseline session 1 block 1: 8/17/22 RPS 각각 유효 run 1/10
 
 ## 재개 절차
 
