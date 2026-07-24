@@ -15,6 +15,7 @@
 | [ADR-0020](0020-performance-engineering-project.md) | accepted | Service Mesh Performance Engineering으로 확정 |
 | [ADR-0021](0021-benchmark-workload-boundaries.md) | accepted | 통신 패턴 기반 Benchmark Workload |
 | [ADR-0022](0022-improvement-validation-loop.md) | accepted | 비교 후 병목 개선과 재측정을 필수화 |
+| [ADR-0023](0023-hybrid-absolute-relative-precision-gate.md) | accepted | 정밀도 정지 기준에 절대값(ms) 기준 추가 |
 
 과거 항공 및 SRE 제품 서비스 경계 ADR은 현재 구조에 적용하지 않는다.
 

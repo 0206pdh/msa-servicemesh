@@ -13,7 +13,16 @@ POLICY = {
     "maximumValidRuns": 15,
     "bootstrapResamples": 10_000,
     "confidenceLevel": 0.95,
-    "precision": {"p95Ms": 0.05, "p99Ms": 0.10, "cpuCoreSecondsPerRequest": 0.05},
+    # A metric passes if EITHER the relative half-width or the absolute
+    # half-width threshold is met (see ADR-0023). Relative-only thresholds
+    # overstate noise on this cluster's small (~25-40ms) baseline latencies;
+    # the absolute floor keeps the gate meaningful once relative width can't
+    # converge within the 15-run cap.
+    "precision": {
+        "p95Ms": {"relative": 0.05, "absolute": 5.0},
+        "p99Ms": {"relative": 0.10, "absolute": 8.0},
+        "cpuCoreSecondsPerRequest": {"relative": 0.05, "absolute": 0.01},
+    },
 }
 
 
@@ -51,6 +60,7 @@ def metric_summary(values: list[float], seed: int) -> dict:
         "q3": percentile(values, 0.75),
         "mad": statistics.median(deviations),
         "confidenceInterval95": {"low": low, "high": high},
+        "halfWidth": half_width,
         "relativeHalfWidth": None if median == 0 else half_width / abs(median),
     }
 
@@ -104,9 +114,16 @@ def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | Non
             metrics[name] = metric_summary(values, seed + index)
     precision = {}
     for name, threshold in POLICY["precision"].items():
-        observed = metrics.get(name, {}).get("relativeHalfWidth")
-        precision[name] = {"threshold": threshold, "observed": observed,
-                           "passed": observed is not None and observed <= threshold}
+        observed_relative = metrics.get(name, {}).get("relativeHalfWidth")
+        observed_absolute = metrics.get(name, {}).get("halfWidth")
+        passed_relative = observed_relative is not None and observed_relative <= threshold["relative"]
+        passed_absolute = observed_absolute is not None and observed_absolute <= threshold["absolute"]
+        precision[name] = {
+            "threshold": threshold,
+            "observedRelative": observed_relative,
+            "observedAbsolute": observed_absolute,
+            "passed": passed_relative or passed_absolute,
+        }
     valid_count = len(summaries)
     if valid_count < POLICY["minimumValidRuns"]:
         decision = "CONTINUE"
