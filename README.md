@@ -4,6 +4,8 @@ Mesh Performance Lab은 VMware 기반 온프레미스 Kubernetes에서 Service M
 
 이 프로젝트는 비즈니스 제품을 가장하지 않는다. Java/Spring MSA는 동기 체인, 병렬 fan-out, 비동기 worker, 대용량 payload 등 현실적인 통신 패턴을 재현하는 제어 가능한 Benchmark Workload다.
 
+> 개요부터 결론까지 한 번에 보려면 [포트폴리오 요약(PORTFOLIO.md)](PORTFOLIO.md)을 참고한다.
+
 ## 중심 질문
 
 > No Mesh, Istio Sidecar, Ambient, Ambient + Waypoint는 워크로드 특성별로 어떤 성능·자원·관측성·회복탄력성 차이를 만들며, 측정된 병목을 어떤 설정과 아키텍처 변경으로 개선할 수 있는가?
