@@ -1,8 +1,29 @@
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from experiments.baseline import BaselineMeasurement, block_order, formal_spec, measurement_duration
+from experiments.runner.cli import canonical
+
+
+class _FakeRunner:
+    def __init__(self, root):
+        self.root = root
+
+    def _repeat(self, spec, repeat):
+        run_dir = self.root / "results" / spec["runId"] / f"repeat-{repeat:02d}"
+        run_dir.mkdir(parents=True)
+        fingerprint = hashlib.sha256(canonical(spec).encode()).hexdigest()
+        (run_dir / "manifest.json").write_text(
+            json.dumps({"configFingerprint": fingerprint}), encoding="utf-8"
+        )
+        (run_dir / "summary.json").write_text(
+            json.dumps({"status": "COMPLETED", "sampleCount": 20_200}), encoding="utf-8"
+        )
+        return run_dir
 
 
 class BaselineMeasurementTests(unittest.TestCase):
@@ -36,6 +57,77 @@ class BaselineMeasurementTests(unittest.TestCase):
                 root, root / "results" / "phase4-chain-baseline" / "state.json", 0
             )
             self.assertEqual(measurement._next_repeat("nominal"), 4)
+
+    def _seed_valid_runs(self, root: Path, condition: str, target_rps: int, count: int) -> None:
+        spec = formal_spec(condition, target_rps)
+        fingerprint = hashlib.sha256(canonical(spec).encode()).hexdigest()
+        directory = root / "results" / f"phase4-chain-baseline-{condition}"
+        for repeat in range(1, count + 1):
+            run_dir = directory / f"repeat-{repeat:02d}"
+            run_dir.mkdir(parents=True)
+            (run_dir / "manifest.json").write_text(
+                json.dumps({"configFingerprint": fingerprint}), encoding="utf-8"
+            )
+            (run_dir / "summary.json").write_text(
+                json.dumps({"status": "COMPLETED", "sampleCount": 20_200}), encoding="utf-8"
+            )
+
+    def test_new_session_executes_new_run_when_valid_runs_already_equal_block_count(self):
+        # Regression test: a brand-new session must not burn its entire block
+        # budget "recovering" valid runs that earlier sessions already
+        # produced. Each condition here already has as many valid runs as
+        # there are blocks in the session (5), which previously caused every
+        # block to take the recovery branch and never execute a new run.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._seed_valid_runs(root, "nominal", 8, 5)
+            self._seed_valid_runs(root, "high", 17, 5)
+            self._seed_valid_runs(root, "near-saturation", 22, 5)
+            measurement = BaselineMeasurement(
+                root, root / "results" / "phase4-chain-baseline" / "state.json", 0
+            )
+            with patch("experiments.baseline.Runner", _FakeRunner):
+                state = measurement.execute_session(session=3, blocks=1)
+            block = state["sessions"][-1]["blocks"][0]
+            fresh_runs = {
+                run["condition"] for run in block["runs"]
+                if run.get("status") == "COMPLETED" and not run.get("recovered")
+            }
+            self.assertEqual(fresh_runs, {"nominal", "high", "near-saturation"})
+
+    def test_resumed_session_still_recovers_runs_completed_before_the_crash(self):
+        # A session that crashes mid-way and is re-invoked with the same
+        # session number must still reconcile already-completed blocks from
+        # disk instead of re-running k6, so the baseline fix must not break
+        # genuine same-session resume.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._seed_valid_runs(root, "nominal", 8, 0)
+            self._seed_valid_runs(root, "high", 17, 0)
+            self._seed_valid_runs(root, "near-saturation", 22, 0)
+            state_path = root / "results" / "phase4-chain-baseline" / "state.json"
+            measurement = BaselineMeasurement(root, state_path, 0)
+            with patch("experiments.baseline.Runner", _FakeRunner):
+                measurement.execute_session(session=1, blocks=1)
+
+            # Simulate a crash that happened after "nominal" finished but
+            # before "high"/"near-saturation" were recorded: drop their run
+            # entries and flip the block back to RUNNING, as an interrupted
+            # process would leave it, then resume the same session.
+            resumed = BaselineMeasurement(root, state_path, 0)
+            block_state = resumed.state["sessions"][0]["blocks"][0]
+            block_state["status"] = "RUNNING"
+            block_state["runs"] = [
+                run for run in block_state["runs"] if run["condition"] == "nominal"
+            ]
+            with patch("experiments.baseline.Runner", _FakeRunner):
+                state = resumed.execute_session(session=1, blocks=1)
+            block = state["sessions"][0]["blocks"][0]
+            recovered = [run for run in block["runs"] if run.get("recovered")]
+            self.assertEqual({run["condition"] for run in recovered}, {"high", "near-saturation"})
+            for condition in ("nominal", "high", "near-saturation"):
+                directory_path = root / "results" / f"phase4-chain-baseline-{condition}"
+                self.assertEqual(len(list(directory_path.glob("repeat-*"))), 1)
 
 
 if __name__ == "__main__":

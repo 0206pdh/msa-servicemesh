@@ -113,8 +113,16 @@ class BaselineMeasurement:
             (item for item in self.state["sessions"] if item["session"] == session), None
         )
         if session_state is None:
-            session_state = {"session": session, "blocks": [], "status": "RUNNING"}
+            baseline = {
+                condition: self._decision(condition)["validRuns"] for condition in CONDITIONS
+            }
+            session_state = {
+                "session": session, "blocks": [], "status": "RUNNING", "baseline": baseline,
+            }
             self.state["sessions"].append(session_state)
+        baseline = session_state.setdefault(
+            "baseline", {condition: 0 for condition in CONDITIONS}
+        )
         completed_blocks = {
             item["block"] for item in session_state["blocks"] if item.get("status") == "COMPLETED"
         }
@@ -152,7 +160,8 @@ class BaselineMeasurement:
             }
             for condition in order:
                 decision = self._decision(condition)
-                if condition in completed_conditions or decision["validRuns"] <= assigned[condition]:
+                new_valid_runs = decision["validRuns"] - baseline.get(condition, 0)
+                if condition in completed_conditions or new_valid_runs <= assigned[condition]:
                     continue
                 recovered = self._latest_selected_run(condition)
                 if recovered is None:
