@@ -17,6 +17,10 @@ spec:
       labels:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/part-of: meshperf
+      {{- if $.Values.sidecar.enabled }}
+      annotations:
+        sidecar.istio.io/inject: "true"
+      {{- end }}
     spec:
       securityContext:
         runAsNonRoot: true

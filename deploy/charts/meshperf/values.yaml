@@ -3,6 +3,11 @@ global:
   otelEndpoint: http://otel-opentelemetry-collector.observability.svc.cluster.local:4318
   tracingSamplingProbability: "1.0"
 
+sidecar:
+  enabled: false
+  istioNamespace: istio-system
+  xdsPort: 15012
+
 javaResources: &javaResources
   requests:
     cpu: 100m

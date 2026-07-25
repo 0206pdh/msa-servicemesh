@@ -1,4 +1,23 @@
 {{- if .Values.networkPolicy.enabled }}
+{{- if .Values.sidecar.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: meshperf-istiod-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: meshperf
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.sidecar.istioNamespace }}
+      ports:
+        - {protocol: TCP, port: {{ .Values.sidecar.xdsPort }}}
+---
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

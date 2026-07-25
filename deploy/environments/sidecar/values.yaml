@@ -1,0 +1,9 @@
+profile: sidecar
+
+global:
+  tracingSamplingProbability: "1.0"
+
+sidecar:
+  enabled: true
+  istioNamespace: istio-system
+  xdsPort: 15012
