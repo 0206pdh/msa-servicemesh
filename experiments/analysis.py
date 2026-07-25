@@ -69,7 +69,7 @@ def extract(summary: dict) -> dict[str, float | None]:
     samples = summary.get("sampleCount", 0)
     resources = summary.get("resources", {}).get("application", {})
     cpu = resources.get("cpuCoreSeconds")
-    return {
+    extracted = {
         "throughputRps": summary.get("metrics", {}).get("throughputRps"),
         "p50Ms": summary.get("metrics", {}).get("latencyMs", {}).get("p50"),
         "p95Ms": summary.get("metrics", {}).get("latencyMs", {}).get("p95"),
@@ -81,6 +81,15 @@ def extract(summary: dict) -> dict[str, float | None]:
             (resources.get("networkRxBytes") or 0) + (resources.get("networkTxBytes") or 0)
         ) / samples,
     }
+    sidecar = summary.get("resources", {}).get("sidecar")
+    if sidecar is not None:
+        sidecar_cpu = sidecar.get("cpuCoreSeconds")
+        extracted["sidecarCpuCoreSecondsPerRequest"] = (
+            None if not samples or sidecar_cpu is None else sidecar_cpu / samples
+        )
+        extracted["sidecarMemoryPeakBytes"] = sidecar.get("memoryPeakBytes")
+        extracted["sidecarCpuThrottledSeconds"] = sidecar.get("cpuThrottledSeconds")
+    return extracted
 
 
 def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | None = None) -> dict:

@@ -35,11 +35,36 @@ class BaselineMeasurementTests(unittest.TestCase):
     def test_formal_spec_uses_canonical_chain_and_request_floor(self):
         spec = formal_spec("nominal", 8)
         self.assertEqual(spec["scenario"], "SYNC_CHAIN")
+        self.assertEqual(spec["profile"], "NO_MESH")
+        self.assertEqual(spec["runId"], "phase4-chain-baseline-nominal")
         self.assertEqual(spec["workloadConfig"]["hopCount"], 3)
         self.assertEqual(spec["loadProfile"]["minimumRequests"], 20_000)
         self.assertEqual(spec["loadProfile"]["durationSeconds"], 2525)
         self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 128)
         self.assertEqual(spec["loadProfile"]["warmupSeconds"], 180)
+
+    def test_formal_spec_no_mesh_fingerprint_is_stable(self):
+        # Regression guard: Phase 4's already-collected valid runs were
+        # selected against this exact fingerprint. Any change to
+        # formal_spec()'s default (No-Mesh) output would silently orphan
+        # that Evidence by making analyze() treat every existing run as
+        # SUPERSEDED_CONFIG_FINGERPRINT.
+        spec = formal_spec("nominal", 8)
+        fingerprint = hashlib.sha256(canonical(spec).encode()).hexdigest()
+        self.assertEqual(
+            fingerprint,
+            "3f24a3bdd2d885979cbccdf2f901be3a8840caf46ab6933a3361c0f121d066ba",
+        )
+
+    def test_formal_spec_accepts_a_different_profile_and_run_id_prefix(self):
+        spec = formal_spec(
+            "nominal", 8, run_id_prefix="phase5-sidecar-baseline", profile="SIDECAR"
+        )
+        self.assertEqual(spec["profile"], "SIDECAR")
+        self.assertEqual(spec["runId"], "phase5-sidecar-baseline-nominal")
+        # Same load-shape guarantees as the no-mesh spec.
+        self.assertEqual(spec["loadProfile"]["minimumRequests"], 20_000)
+        self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 128)
 
     def test_block_order_is_seeded_and_complete(self):
         first = block_order(1)

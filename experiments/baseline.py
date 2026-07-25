@@ -25,8 +25,11 @@ def measurement_duration(target_rps: int) -> int:
     return min(MAXIMUM_DURATION_SECONDS, max(MINIMUM_DURATION_SECONDS, required))
 
 
-def formal_spec(condition: str, target_rps: int) -> dict:
-    spec = discovery_spec(f"phase4-chain-baseline-{condition}", target_rps)
+def formal_spec(
+    condition: str, target_rps: int, run_id_prefix: str = "phase4-chain-baseline",
+    profile: str = "NO_MESH",
+) -> dict:
+    spec = discovery_spec(f"{run_id_prefix}-{condition}", target_rps, profile=profile)
     spec["seed"] = 42
     spec["timeSynchronized"] = True
     spec["loadProfile"].update({
@@ -46,10 +49,15 @@ def block_order(block: int, seed: int = 42) -> list[str]:
 
 
 class BaselineMeasurement:
-    def __init__(self, root: Path, state_path: Path, cooldown_seconds: int = 120):
+    def __init__(
+        self, root: Path, state_path: Path, cooldown_seconds: int = 120,
+        run_id_prefix: str = "phase4-chain-baseline", profile: str = "NO_MESH",
+    ):
         self.root = root
         self.state_path = state_path
         self.cooldown_seconds = cooldown_seconds
+        self.run_id_prefix = run_id_prefix
+        self.profile = profile
         self.state = self._load()
 
     def _load(self) -> dict:
@@ -58,7 +66,7 @@ class BaselineMeasurement:
         return {
             "scenario": "SYNC_CHAIN",
             "variant": "hop-3-payload-1KiB-delay-1ms",
-            "profile": "NO_MESH",
+            "profile": self.profile,
             "seed": 42,
             "conditions": CONDITIONS,
             "sessions": [],
@@ -72,7 +80,7 @@ class BaselineMeasurement:
         )
 
     def _condition_dir(self, condition: str) -> Path:
-        return self.root / "results" / f"phase4-chain-baseline-{condition}"
+        return self.root / "results" / f"{self.run_id_prefix}-{condition}"
 
     def _next_repeat(self, condition: str) -> int:
         directory = self._condition_dir(condition)
@@ -84,9 +92,15 @@ class BaselineMeasurement:
                 continue
         return max(indices, default=0) + 1
 
+    def _formal_spec(self, condition: str) -> dict:
+        return formal_spec(
+            condition, CONDITIONS[condition],
+            run_id_prefix=self.run_id_prefix, profile=self.profile,
+        )
+
     def _decision(self, condition: str) -> dict:
         directory = self._condition_dir(condition)
-        spec = formal_spec(condition, CONDITIONS[condition])
+        spec = self._formal_spec(condition)
         fingerprint = hashlib.sha256(canonical(spec).encode()).hexdigest()
         return (
             analyze(directory, required_fingerprint=fingerprint)
@@ -94,7 +108,7 @@ class BaselineMeasurement:
         )
 
     def _latest_selected_run(self, condition: str) -> tuple[int, Path, dict] | None:
-        spec = formal_spec(condition, CONDITIONS[condition])
+        spec = self._formal_spec(condition)
         selected = hashlib.sha256(canonical(spec).encode()).hexdigest()
         directory = self._condition_dir(condition)
         for path in sorted(directory.glob("repeat-*"), reverse=True) if directory.exists() else []:
@@ -191,7 +205,7 @@ class BaselineMeasurement:
                     self._write()
                     continue
                 repeat = self._next_repeat(condition)
-                spec = formal_spec(condition, CONDITIONS[condition])
+                spec = self._formal_spec(condition)
                 run_dir = runner._repeat(spec, repeat)
                 summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
                 after = self._decision(condition)
@@ -230,9 +244,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--session", type=int, required=True)
     parser.add_argument("--blocks", type=int, default=1, choices=range(1, 6))
     parser.add_argument("--cooldown-seconds", type=int, default=120)
+    parser.add_argument("--run-id-prefix", default="phase4-chain-baseline")
+    parser.add_argument("--profile", default="NO_MESH")
     args = parser.parse_args(argv)
     result = BaselineMeasurement(
-        args.root.resolve(), args.state.resolve(), args.cooldown_seconds
+        args.root.resolve(), args.state.resolve(), args.cooldown_seconds,
+        run_id_prefix=args.run_id_prefix, profile=args.profile,
     ).execute_session(args.session, args.blocks)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

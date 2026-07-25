@@ -190,15 +190,31 @@ class KubernetesAdapter:
             )),
             "applicationCpuCoreSeconds": self.scalar(self.prometheus_query(
                 f'sum(increase(container_cpu_usage_seconds_total{{namespace="{self.namespace}",container!="",'
-                f'container!="POD"}}[{window}]))'
+                f'container!="POD",container!="istio-proxy",container!="istio-init"}}[{window}]))'
             )),
             "applicationCpuPeakCores": self.scalar(self.prometheus_query(
                 f'max_over_time((sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
-                f'container!="",container!="POD"}}[30s])))[{window}:15s])'
+                f'container!="",container!="POD",container!="istio-proxy",container!="istio-init"}}[30s])))[{window}:15s])'
             )),
             "applicationMemoryPeakBytes": self.scalar(self.prometheus_query(
                 f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
-                f'container!="",container!="POD"}}))[{window}:15s])'
+                f'container!="",container!="POD",container!="istio-proxy",container!="istio-init"}}))[{window}:15s])'
+            )),
+            "sidecarCpuCoreSeconds": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'container="istio-proxy"}}[{window}]))'
+            )),
+            "sidecarCpuPeakCores": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'container="istio-proxy"}}[30s])))[{window}:15s])'
+            )),
+            "sidecarMemoryPeakBytes": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
+                f'container="istio-proxy"}}))[{window}:15s])'
+            )),
+            "sidecarCpuThrottledSeconds": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_cfs_throttled_seconds_total{{namespace="{self.namespace}",'
+                f'container="istio-proxy"}}[{window}]))'
             )),
             "networkRxBytes": self.scalar(self.prometheus_query(
                 f'sum(increase(container_network_receive_bytes_total{{namespace="{self.namespace}"}}[{window}]))'
@@ -232,6 +248,8 @@ class KubernetesAdapter:
             factors.append("NODE_CPU_HEADROOM_MISSING")
         elif snapshot["nodeCpuPeakPercent"] >= float(self.config.get("maximumNodeCpuPercent", 85)):
             factors.append("NODE_CPU_HEADROOM_LOW")
+        if (snapshot.get("sidecarCpuThrottledSeconds") or 0) > 0:
+            factors.append("PROXY_CPU_THROTTLED")
         return factors
 
     def trace_marker(self, run_id: str) -> dict:

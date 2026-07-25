@@ -20,7 +20,7 @@ CAPACITY_FAILURE_FACTORS = {
 }
 
 
-def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None) -> dict:
+def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, profile: str = "NO_MESH") -> dict:
     load = {
         "executor": "CONSTANT_ARRIVAL_RATE",
         "targetRps": target_rps,
@@ -44,7 +44,7 @@ def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None) 
     return {
         "runId": run_id,
         "adapter": "kubernetes",
-        "profile": "NO_MESH",
+        "profile": profile,
         "scenario": "SYNC_CHAIN",
         "seed": 42,
         "targetUrl": "http://192.168.200.100",
