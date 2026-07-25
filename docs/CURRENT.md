@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 4 — No Mesh baseline 준비
-- Infrastructure Step: Phase 3 exit Gate 완료
-- Status: phase-4-canonical-baseline-measurement
-- Last updated: 2026-07-23
+- Overall Phase: Phase 4 — No Mesh baseline 완료, Phase 5 진입 대기
+- Infrastructure Step: Phase 4 exit Gate 완료
+- Status: phase-5-not-started
+- Last updated: 2026-07-25
 
 ## 완료된 기준점
 
@@ -58,17 +58,23 @@
 - [x] canonical SYNC_CHAIN usable capacity `C*` 28 RPS 승인
 - [x] canonical 절대 부하 low/nominal/high/near-saturation 3/8/17/22 RPS 확정
 - [x] Tempo OOM 복구: ballast 128 MiB, memory limit 1536 MiB, trace round trip 통과
+- [x] 세션 재시작 시 valid run 회계가 0으로 리셋되는 스케줄러 버그 수정 (commit `2e8faf4`)
+- [x] 상대 half-width 단일 정밀도 기준이 15회 상한에도 수렴 불가함을 확인
+- [x] 절대(ms/core-s)·상대(%) 혼합 정밀도 기준 도입 (ADR-0023)
+- [x] SYNC_CHAIN canonical No Mesh 정식 반복측정 완료: high(10회)/near-saturation(13회) `STOP_PRECISION_REACHED`, nominal(15회) `INCONCLUSIVE_MAX_RUNS`
+- [x] Phase 4 Evidence와 exit Gate 완료
 
 ## 다음 작업
 
-1. SYNC_CHAIN canonical condition을 8/17/22 RPS에서 seeded randomized block으로 정식 측정한다.
-2. 조건별 유효 run을 최소 10회 수집하고 bootstrap 95% CI 정밀도 Gate를 평가한다.
-3. 최대 15회에도 정밀도 기준 미달이면 `INCONCLUSIVE_MAX_RUNS`로 기록한다.
+1. Phase 5(Istio Sidecar) 착수 전 Istio 버전, injection 방식, mTLS mode를 결정하고 클러스터에 배포한다.
+2. Sidecar 배포 후 실제 traffic이 proxy를 통과하고 mTLS가 적용됐는지 확인한다.
+3. No Mesh baseline과 동일한 seeded randomized block·반복 정책으로 paired 측정을 시작한다.
 
 ## 현재 한계
 
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
-- capacity discovery 값은 부하점 결정 Evidence이며 정식 profile 비교값은 아직 없다.
+- 이 클러스터(노드당 allocatable 2 vCPU)는 p95 ≈5ms/p99 ≈8ms보다 작은 latency 차이를 통계적으로 구분하지 못한다. Phase 5 이후 Mesh profile 오버헤드가 이보다 작게 나오면 `확인된 차이 없음`으로만 보고해야 한다.
+- nominal(8 RPS) 조건은 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -101,6 +107,9 @@
 - Low 3 RPS는 sanity/linearity 전용이며 정식 cross-profile 반복에서 제외
 - Capacity retry: 27/28 RPS `COMPLETED`, telemetry factor 없음, Tempo restart 0
 - Formal baseline session 1 block 1: 8/17/22 RPS 각각 유효 run 1/10
+- Formal baseline 최종: nominal 15회(`INCONCLUSIVE_MAX_RUNS`), high 10회(`STOP_PRECISION_REACHED`), near-saturation 13회(`STOP_PRECISION_REACHED`)
+- Python 전체 unittest: 21 passed
+- Git: 스케줄러 버그 수정 `2e8faf4`, ADR-0023 `0a78a3b`, Phase 4 최종 Evidence 커밋 예정
 
 ## 재개 절차
 

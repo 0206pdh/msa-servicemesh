@@ -97,7 +97,8 @@ Workload는 지연, 오류율, 응답 크기, CPU, 메모리, fan-out 수와 hop
 ## 현재 상태
 
 - 방향: Service Mesh Performance Engineering으로 확정
-- 현재 Phase: Phase 3 VMware Kubernetes 플랫폼 기반 진행 중
-- 완료: Phase 0 설계, Phase 1 Workload, Phase 2 Runner 구현
+- 현재 Phase: Phase 4 No Mesh baseline 완료, Phase 5 Sidecar 진입 대기
+- 완료: Phase 0 설계, Phase 1 Workload, Phase 2 Runner, Phase 3 플랫폼, Phase 4 No Mesh baseline
 - 플랫폼: Kubernetes 1.36.2 3노드와 Cilium 1.19.6/Hubble 정상화
-- 다음 Gate: VM 원본 Evidence, MetalLB/Cilium Gateway API, 관측 스택
+- Phase 4 결과: SYNC_CHAIN usable capacity C\*=28 RPS, nominal/high/near-saturation 8/17/22 RPS 정식 반복측정 완료 ([Evidence](docs/evidence/performance/2026-07-25-canonical-baseline-final.md))
+- 다음 Gate: Istio Sidecar 배포, injection/mTLS 검증, paired baseline 측정

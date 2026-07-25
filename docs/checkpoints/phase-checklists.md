@@ -46,11 +46,11 @@
 
 ## Phase 4 — No Mesh
 
-- [ ] Scenario별 포화점과 목표 부하
-- [ ] core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate
-- [ ] Workload/부하 발생기 자체 병목 판정
-- [ ] baseline run ID 승인
-- [ ] Phase 4 Evidence measured
+- [x] Scenario별 포화점과 목표 부하 (C\*=28 RPS, 3/8/17/22 RPS)
+- [x] core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate (high/near-saturation `STOP_PRECISION_REACHED`, nominal `INCONCLUSIVE_MAX_RUNS`)
+- [x] Workload/부하 발생기 자체 병목 판정 (28 RPS에서 node CPU peak 36%, 부하발생기 CPU peak 5% — 자체 병목 아님)
+- [x] baseline run ID 승인
+- [x] Phase 4 Evidence measured
 
 ## Phase 5 — Sidecar
 

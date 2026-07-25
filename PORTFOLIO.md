@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-24 · **진행 상태**: Phase 4 (No-Mesh baseline) 진행 중 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-25 · **진행 상태**: Phase 4 (No-Mesh baseline) 완료, Phase 5 진입 대기 · **시작일**: 2026-07-22
 
 ---
 
@@ -22,12 +22,18 @@ Service Mesh(Istio Sidecar/Ambient/Waypoint)를 온프레미스 Kubernetes에 �
 | 인프라 규모 | VMware Workstation 3-VM Kubernetes 1.36 (control-plane 1 + worker 2), Cilium 1.19 CNI/Gateway, MetalLB, Prometheus/Grafana/Loki/Tempo/OTel 풀스택 관측 |
 | 애플리케이션 | Java 25 + Spring Boot 4.1 기반 마이크로서비스 5종 (gateway/orchestrator/producer/worker/workload-target), Sync Chain·Fan-out·Kafka Async·Payload·Mixed-Resource 5개 통신 패턴 재현 |
 | 측정 자동화 | Python 기반 Experiment Runner + k6 부하 생성기, capacity discovery → bootstrap 95% CI 정지 규칙까지 자동화 (`experiments/` 약 1,600줄) |
-| 현재까지 확정 산출물 | No-Mesh 3-hop 동기 체인의 usable capacity `C* = 28 RPS` 규명, 절대 부하점 3종(nominal/high/near-saturation) 확정, 정식 baseline 반복측정 진행 중 |
-| 커밋 수 | 25 (2026-07-24 기준) |
+| 현재까지 확정 산출물 | No-Mesh 3-hop 동기 체인의 usable capacity `C* = 28 RPS` 규명, 절대 부하점 3종(nominal/high/near-saturation) 확정, **정식 baseline 반복측정 완료**(총 38개 유효 run) |
+| 커밋 수 | 28+ (2026-07-25 기준) |
 
 **한 줄 성과 예시 (이미 측정된 값)**: No-Mesh 3-hop 동기 체인에서 부하를 28→30 RPS로 **7.1%**만 늘렸는데
 p99 지연은 69.1ms→119.0ms로 **72.2%** 급증했다 — 이 임계점을 사전에 규명하지 않고 막연히 "여유 있어 보이는"
 부하로 벤치마크했다면 Mesh profile 간 비교 자체가 무의미했을 것이다. (§6.1 참고)
+
+**Phase 4 최종 결과 한 줄 요약**: nominal(8 RPS)/high(17 RPS)/near-saturation(22 RPS) 세 조건에서 각각
+15/10/13회의 유효 반복측정을 완료했고, high와 near-saturation은 사전에 정의한 통계적 정밀도 기준을
+통과(`STOP_PRECISION_REACHED`)했다. nominal은 15회 상한까지 다 채웠지만 p99 지표 하나가 근소하게
+(8.9%) 기준을 넘지 못해 `INCONCLUSIVE_MAX_RUNS`로 명시적으로 결론을 유보했다 — 무리하게 통과시키지
+않고 한계를 그대로 기록한 것 자체가 이 프로젝트의 방법론적 원칙이다. (§6.2 참고)
 
 ---
 
@@ -168,7 +174,7 @@ Experiment Runner (Python)
 
 | Profile | 구조 | 상태 |
 |---|---|---|
-| No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 측정 중 |
+| No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 완료 |
 | Sidecar | Pod마다 Envoy proxy 동반 | `[TODO: Phase 5]` |
 | Ambient | Node 공유 ztunnel (L4) | `[TODO: Phase 6]` |
 | Ambient + Waypoint | 선택적 L7 proxy 추가 | `[TODO: Phase 7]` |
@@ -183,8 +189,8 @@ Experiment Runner (Python)
 | 1 | Java 벤치마크 워크로드 5종 + Compose E2E | ✅ 완료 |
 | 2 | Experiment Runner, k6 프로파일, Ground Truth 자동 수집 | ✅ 완료 |
 | 3 | VMware 3노드 Kubernetes, Cilium, 관측 스택, NetworkPolicy | ✅ 완료 |
-| 4 | **No Mesh 기준선** — capacity discovery 완료, 정식 반복측정 진행 중 | 🔄 진행 중 |
-| 5 | Istio Sidecar 기준선 | `[TODO]` |
+| 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
+| 5 | Istio Sidecar 기준선 | 🔄 진입 대기 |
 | 6 | Ambient 기준선 | `[TODO]` |
 | 7 | Ambient + Waypoint 기준선 | `[TODO]` |
 | 8 | profile 비교와 병목 선정 | `[TODO]` |
@@ -195,10 +201,10 @@ Experiment Runner (Python)
 ### 5.1 Phase 4 세부 체크리스트
 
 - [x] Scenario별 포화점과 목표 부하 확정 (C\*=28 RPS, 3/8/17/22 RPS)
-- [ ] core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate — **진행 중 (§6.2)**
-- [ ] Workload/부하 발생기 자체 병목 판정
-- [ ] baseline run ID 승인
-- [ ] Phase 4 Evidence `measured`
+- [x] core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate (§6.2)
+- [x] Workload/부하 발생기 자체 병목 판정 (28 RPS에서 node CPU peak 36%, 부하발생기 CPU peak 5% — 자체 병목 아님)
+- [x] baseline run ID 승인
+- [x] Phase 4 Evidence `measured`
 
 ---
 
@@ -224,20 +230,31 @@ Experiment Runner (Python)
 - 확정된 절대 부하점: low 3 / nominal 8 / high 17 / near-saturation 22 RPS (low는 sanity 전용, cross-profile
   정식 비교에서는 제외)
 
-### 6.2 정식 No-Mesh Baseline — 진행 중 (중간 집계, 2026-07-24 기준)
+### 6.2 정식 No-Mesh Baseline — 완료 (2026-07-25)
 
-128 pre-allocated/max VU 고정, warm-up 180초, seeded randomized block(seed 42)으로 반복 측정 중이다.
-**아래 수치는 조건당 최소 10회에 도달하기 전 중간값이므로 최종 결론이 아니다.**
+128 pre-allocated/max VU 고정, warm-up 180초, seeded randomized block(seed 42, session 1~4)으로 반복
+측정했다. 최종 결과는 다음과 같다.
 
-| 조건 | Target RPS | 유효 run (현재/목표) | Throughput median | p95 median (95% CI) | p99 median (95% CI) | 정밀도 Gate |
+| 조건 | Target RPS | 유효 run | Throughput median | p95 median (95% CI) | p99 median (95% CI) | 정밀도 판정 |
 |---|---:|---:|---:|---|---|---|
-| nominal | 8 | 5 / 10 | 8.001 req/s | 34.13 ms (28.11–39.30) | 43.96 ms (35.54–55.20) | 미충족 (계속 측정) |
-| high | 17 | 6 / 10 | 17.001 req/s | 28.26 ms (25.20–37.06) | 35.44 ms (30.73–49.99) | 미충족 (계속 측정) |
-| near-saturation | 22 | 5 / 10 | 22.002 req/s | 34.33 ms (30.30–41.63) | 46.40 ms (40.88–62.88) | 미충족 (계속 측정) |
+| nominal | 8 | 15/15 (상한) | 8.0006 req/s | 28.21 ms (24.15–33.05) | 36.56 ms (30.51–48.67) | `INCONCLUSIVE_MAX_RUNS`(p99만 미달) |
+| high | 17 | 10/15 | 17.0013 req/s | 25.20 ms (23.11–29.20) | 30.77 ms (28.76–36.93) | `STOP_PRECISION_REACHED` |
+| near-saturation | 22 | 13/15 | 22.0014 req/s | 33.79 ms (30.30–36.94) | 46.40 ms (38.80–54.55) | `STOP_PRECISION_REACHED` |
 
-`[TODO: 조건별 10~15회 도달 및 bootstrap 95% CI 정밀도 게이트 통과 후 최종 표로 교체]`
-`[TODO: Workload/부하 발생기 자체 병목(자원 상한) 여부 판정 결과]`
-`[TODO: Phase 4 baseline run ID 승인 및 Evidence 링크]`
+**측정 도중 발견하고 수정한 문제** — 애초 정한 정밀도 기준(ADR-0014, 상대 half-width 단일 기준: p95≤5%/p99
+≤10%/CPU≤5%)은 9~11회 시점에서 12~36%로 기준 대비 2~7배 벗어나 있었고, `1/√n` 수렴 속도로 계산하면
+15회를 다 채워도 대부분 통과하지 못할 것으로 예상됐다. 원인은 이 환경의 기준선 latency 자체가 25~45ms대로
+작아 상대 비율 기준이 작은 절대 오차(수 ms)를 과장하는 데 있었다(프로젝트가 이미 문서화한 "작은 기준값은
+상대 비율을 과장한다"는 원칙과 일치). 상대 기준은 유지하되 절대(ms/core-s) 기준을 OR 조건으로 추가하는
+[ADR-0023](docs/decisions/0023-hybrid-absolute-relative-precision-gate.md)을 세워 해결했고, 적용 즉시
+`high` 조건이 재계산만으로 통과 판정을 받는 것으로 실효성을 확인했다.
+
+**정직하게 남긴 한계**: nominal은 15회까지 다 채웠지만 p99 절대 half-width(9.08ms)가 기준(8ms)을 8.9%
+초과해 통과시키지 않고 `INCONCLUSIVE_MAX_RUNS`로 유보했다. 또한 이 클러스터(노드당 allocatable 2 vCPU)는
+p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한다 — Phase 5 이후 Mesh profile의 오버헤드가
+이보다 작게 측정되면 "차이 없음"이 아니라 "이 환경에서는 확인 불가"로 보고해야 한다.
+
+전체 Evidence: [2026-07-25 canonical baseline final](docs/evidence/performance/2026-07-25-canonical-baseline-final.md)
 
 ---
 
@@ -267,6 +284,12 @@ Experiment Runner (Python)
    `DIRTY_SOURCE_TREE`로 무효 처리되도록 만들어, "커밋되지 않은 코드로 만든 숫자"가 Evidence에 섞이는 것을
    원천 차단했다. 실제로 위 4번 수정을 실측 도중(warm-up 단계)에 곧바로 커밋해 진행 중이던 run이 무효
    처리되는 것을 막은 사례가 있다.
+6. **상대값 단일 정밀도 기준의 수렴 실패를 사전에 계산으로 예측하고 정책을 개정**: 반복측정 도중 관측된
+   bootstrap CI 반폭이 기준 대비 2~7배 벗어난 상태였다. 무작정 반복 횟수를 늘리는 대신 `1/√n` 수렴 속도로
+   15회 상한 도달 시점의 값을 미리 계산해 "이대로면 통과 못 한다"를 사전에 판단했고, 원인(작은 절대
+   latency에 상대 비율 기준을 적용한 왜곡)을 근거로 절대·상대 혼합 기준(ADR-0023)으로 정책을 바꿨다.
+   정책 변경 시점에 이미 돌고 있던 프로세스가 구버전 기준을 메모리에 들고 있어 불필요한 재측정을 할
+   위험을 발견하고, warm-up 단계(측정 낭비 최소 시점)에 맞춰 안전하게 재시작했다.
 
 `[TODO: Phase 5 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
@@ -327,8 +350,9 @@ Experiment Runner (Python)
 | 범위·성공 기준 | [docs/01-scope-and-success-criteria.md](docs/01-scope-and-success-criteria.md) |
 | 아키텍처 | [docs/02-architecture.md](docs/02-architecture.md) |
 | 개념·용어 | [docs/03-concepts-and-glossary.md](docs/03-concepts-and-glossary.md) |
-| 반복측정 정책 | [ADR-0014](docs/decisions/0014-measurement-repetition-and-load-policy.md) |
+| 반복측정 정책 | [ADR-0014](docs/decisions/0014-measurement-repetition-and-load-policy.md), [ADR-0023](docs/decisions/0023-hybrid-absolute-relative-precision-gate.md) |
 | Capacity Discovery Evidence | [docs/evidence/performance/2026-07-23-canonical-chain-capacity.md](docs/evidence/performance/2026-07-23-canonical-chain-capacity.md) |
+| No-Mesh Baseline 최종 Evidence | [docs/evidence/performance/2026-07-25-canonical-baseline-final.md](docs/evidence/performance/2026-07-25-canonical-baseline-final.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |
