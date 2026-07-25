@@ -206,15 +206,41 @@ class BaselineMeasurement:
                     continue
                 repeat = self._next_repeat(condition)
                 spec = self._formal_spec(condition)
-                run_dir = runner._repeat(spec, repeat)
-                summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+                try:
+                    run_dir = runner._repeat(spec, repeat)
+                    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+                    status = summary["status"]
+                except Exception as exc:
+                    # cli.py._repeat() already wrote state.json/failure.json evidence
+                    # for this repeat before re-raising. A single flaky run (k6 crash,
+                    # transient probe failure under load, etc.) must not take down an
+                    # unattended multi-hour/multi-session scheduler run: record it as
+                    # a failed attempt and let the block continue to the next
+                    # condition. The next session/block will retry this condition via
+                    # _next_repeat(), same as any other invalid run.
+                    run_dir = self._condition_dir(condition) / f"repeat-{repeat:02d}"
+                    status = "FAILED"
+                    block_state["runs"].append({
+                        "condition": condition,
+                        "targetRps": CONDITIONS[condition],
+                        "repeat": repeat,
+                        "runDir": str(run_dir.relative_to(self.root)),
+                        "status": status,
+                        "error": str(exc),
+                        "validRuns": self._decision(condition)["validRuns"],
+                        "decision": self._decision(condition)["decision"],
+                    })
+                    self._write()
+                    if self.cooldown_seconds:
+                        time.sleep(self.cooldown_seconds)
+                    continue
                 after = self._decision(condition)
                 block_state["runs"].append({
                     "condition": condition,
                     "targetRps": CONDITIONS[condition],
                     "repeat": repeat,
                     "runDir": str(run_dir.relative_to(self.root)),
-                    "status": summary["status"],
+                    "status": status,
                     "validRuns": after["validRuns"],
                     "decision": after["decision"],
                 })

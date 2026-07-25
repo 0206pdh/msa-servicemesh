@@ -26,6 +26,29 @@ class _FakeRunner:
         return run_dir
 
 
+class _FlakyRunner(_FakeRunner):
+    """Fails the first attempt for one condition, like a k6 crash mid-run,
+    then succeeds on retry - mirrors cli.py._repeat() writing failure
+    evidence to disk before raising."""
+
+    def __init__(self, root, fail_condition: str):
+        super().__init__(root)
+        self.fail_condition = fail_condition
+        self.failed_once = False
+
+    def _repeat(self, spec, repeat):
+        if not self.failed_once and spec["runId"].endswith(self.fail_condition):
+            self.failed_once = True
+            run_dir = self.root / "results" / spec["runId"] / f"repeat-{repeat:02d}"
+            run_dir.mkdir(parents=True)
+            (run_dir / "failure.json").write_text(
+                json.dumps({"code": "RUNNER_ERROR", "message": "k6 failed with exit code 99"}),
+                encoding="utf-8",
+            )
+            raise RuntimeError("k6 failed with exit code 99")
+        return super()._repeat(spec, repeat)
+
+
 class BaselineMeasurementTests(unittest.TestCase):
     def test_duration_meets_twenty_thousand_request_floor(self):
         self.assertEqual(measurement_duration(8), 2525)
@@ -153,6 +176,27 @@ class BaselineMeasurementTests(unittest.TestCase):
             for condition in ("nominal", "high", "near-saturation"):
                 directory_path = root / "results" / f"phase4-chain-baseline-{condition}"
                 self.assertEqual(len(list(directory_path.glob("repeat-*"))), 1)
+
+    def test_a_crashed_run_does_not_abort_the_whole_scheduler_process(self):
+        # Regression test: an unhandled k6/runner failure previously
+        # propagated all the way out of execute_session(), killing an
+        # unattended multi-hour background process on a single flaky run.
+        # The failure must instead be recorded and the block must continue.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            measurement = BaselineMeasurement(
+                root, root / "results" / "phase4-chain-baseline" / "state.json", 0
+            )
+            with patch("experiments.baseline.Runner", lambda root: _FlakyRunner(root, "high")):
+                state = measurement.execute_session(session=1, blocks=1)  # must not raise
+            block = state["sessions"][0]["blocks"][0]
+            statuses = {run["condition"]: run["status"] for run in block["runs"]}
+            self.assertEqual(statuses["high"], "FAILED")
+            self.assertEqual(statuses["nominal"], "COMPLETED")
+            self.assertEqual(statuses["near-saturation"], "COMPLETED")
+            # The failed attempt's evidence directory is preserved, not skipped.
+            high_dir = root / "results" / "phase4-chain-baseline-high"
+            self.assertEqual(len(list(high_dir.glob("repeat-*"))), 1)
 
 
 if __name__ == "__main__":
