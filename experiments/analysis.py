@@ -88,7 +88,7 @@ def extract(summary: dict) -> dict[str, float | None]:
             None if not samples or sidecar_cpu is None else sidecar_cpu / samples
         )
         extracted["sidecarMemoryPeakBytes"] = sidecar.get("memoryPeakBytes")
-        extracted["sidecarCpuThrottledSeconds"] = sidecar.get("cpuThrottledSeconds")
+        extracted["sidecarCpuThrottledPeriods"] = sidecar.get("cpuThrottledPeriods")
     return extracted
 
 

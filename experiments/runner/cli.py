@@ -269,7 +269,7 @@ class Runner:
                 sidecar_resource = {"cpuCoreSeconds": window_snapshot.get("sidecarCpuCoreSeconds"),
                                     "cpuPeakCores": window_snapshot.get("sidecarCpuPeakCores"),
                                     "memoryPeakBytes": window_snapshot.get("sidecarMemoryPeakBytes"),
-                                    "cpuThrottledSeconds": window_snapshot.get("sidecarCpuThrottledSeconds")}
+                                    "cpuThrottledPeriods": window_snapshot.get("sidecarCpuThrottledPeriods")}
             node_resource = {**empty_resource, "cpuPeakPercent": window_snapshot.get("nodeCpuPeakPercent"),
                              "memoryMinimumByNode": window_snapshot.get("nodeMemoryMinimum")}
         return {"runId": spec["runId"], "profile": spec["profile"], "scenario": spec["scenario"], "status": status,

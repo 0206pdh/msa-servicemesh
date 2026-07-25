@@ -212,8 +212,8 @@ class KubernetesAdapter:
                 f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
                 f'container="istio-proxy"}}))[{window}:15s])'
             )),
-            "sidecarCpuThrottledSeconds": self.scalar(self.prometheus_query(
-                f'sum(increase(container_cpu_cfs_throttled_seconds_total{{namespace="{self.namespace}",'
+            "sidecarCpuThrottledPeriods": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="{self.namespace}",'
                 f'container="istio-proxy"}}[{window}]))'
             )),
             "networkRxBytes": self.scalar(self.prometheus_query(
@@ -248,7 +248,7 @@ class KubernetesAdapter:
             factors.append("NODE_CPU_HEADROOM_MISSING")
         elif snapshot["nodeCpuPeakPercent"] >= float(self.config.get("maximumNodeCpuPercent", 85)):
             factors.append("NODE_CPU_HEADROOM_LOW")
-        if (snapshot.get("sidecarCpuThrottledSeconds") or 0) > 0:
+        if (snapshot.get("sidecarCpuThrottledPeriods") or 0) > 0:
             factors.append("PROXY_CPU_THROTTLED")
         return factors
 
