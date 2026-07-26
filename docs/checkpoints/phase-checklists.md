@@ -54,9 +54,9 @@
 
 ## Phase 5 — Sidecar
 
-- [ ] injection/mTLS/traffic path 검증
-- [ ] app/proxy 자원 분리
-- [ ] paired core 조건 10~15회와 CI 정밀도 Gate
+- [x] injection/mTLS/traffic path 검증
+- [x] app/proxy 자원 분리
+- [ ] paired core 조건 10~15회와 CI 정밀도 Gate — 진행 중
 - [ ] 기능과 비용 Evidence
 - [ ] Phase 5 Evidence measured
 

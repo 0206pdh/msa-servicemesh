@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 4 — No Mesh baseline 완료, Phase 5 진입 대기
-- Infrastructure Step: Phase 4 exit Gate 완료
-- Status: phase-5-not-started
-- Last updated: 2026-07-25
+- Overall Phase: Phase 5 — Istio Sidecar 설치·검증 완료, 정식 반복측정 진행 중
+- Infrastructure Step: Istio 1.30.3 설치, sidecar 주입과 mTLS 검증 완료
+- Status: phase-5-formal-measurement-in-progress
+- Last updated: 2026-07-26
 
 ## 완료된 기준점
 
@@ -63,12 +63,19 @@
 - [x] 절대(ms/core-s)·상대(%) 혼합 정밀도 기준 도입 (ADR-0023)
 - [x] SYNC_CHAIN canonical No Mesh 정식 반복측정 완료: high(10회)/near-saturation(13회) `STOP_PRECISION_REACHED`, nominal(15회) `INCONCLUSIVE_MAX_RUNS`
 - [x] Phase 4 Evidence와 exit Gate 완료
+- [x] Istio 1.30.3 버전/자원 크기 결정과 Helm 설치 (ADR-0024)
+- [x] Helm chart Sidecar profile 지원 (No Mesh 회귀 없음, lint/render 확인)
+- [x] 7개 SYNC_CHAIN 서비스 sidecar 주입과 `2/2 Running` 확인
+- [x] 실제 mTLS 적용을 Envoy config dump로 직접 확인 (STRICT 시도 중 Prometheus 스크레이프 붕괴 발견 → PERMISSIVE로 정정)
+- [x] app/proxy(Envoy) 자원 분리 수집과 throttling 감지 gate 추가
+- [x] 스케줄러의 No Mesh/Sidecar profile 공용화 (기존 Phase 4 fingerprint 불변 검증)
+- [x] 스케줄러가 단일 run 실패로 전체 세션이 죽지 않도록 견고성 개선 (commit `8afe58c`)
 
 ## 다음 작업
 
-1. Phase 5(Istio Sidecar) 착수 전 Istio 버전, injection 방식, mTLS mode를 결정하고 클러스터에 배포한다.
-2. Sidecar 배포 후 실제 traffic이 proxy를 통과하고 mTLS가 적용됐는지 확인한다.
-3. No Mesh baseline과 동일한 seeded randomized block·반복 정책으로 paired 측정을 시작한다.
+1. Phase 5 paired 정식 반복측정을 조건별 valid run이 `CONTINUE`가 아닐 때까지 세션을 이어서 실행한다.
+2. 완료되면 Phase 5 Evidence 문서를 작성하고 checklist/CURRENT.md/PORTFOLIO.md를 갱신한다.
+3. Phase 6(Ambient)에 착수한다.
 
 ## 현재 한계
 
