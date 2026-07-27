@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 5 — Istio Sidecar 설치·검증 완료, 정식 반복측정 진행 중
-- Infrastructure Step: Istio 1.30.3 설치, sidecar 주입과 mTLS 검증 완료
-- Status: phase-5-formal-measurement-in-progress
-- Last updated: 2026-07-26
+- Overall Phase: Phase 5 — Istio Sidecar 완료, Phase 6 진입 대기
+- Infrastructure Step: Istio 1.30.3 설치와 정식 반복측정 완료
+- Status: phase-6-not-started
+- Last updated: 2026-07-27
 
 ## 완료된 기준점
 
@@ -70,18 +70,22 @@
 - [x] app/proxy(Envoy) 자원 분리 수집과 throttling 감지 gate 추가
 - [x] 스케줄러의 No Mesh/Sidecar profile 공용화 (기존 Phase 4 fingerprint 불변 검증)
 - [x] 스케줄러가 단일 run 실패로 전체 세션이 죽지 않도록 견고성 개선 (commit `8afe58c`)
+- [x] Phase 5 Sidecar 정식 반복측정 완료: 세 조건 모두 15회 `INCONCLUSIVE_MAX_RUNS`
+- [x] Phase 5 Evidence와 exit Gate 완료
 
 ## 다음 작업
 
-1. Phase 5 paired 정식 반복측정을 조건별 valid run이 `CONTINUE`가 아닐 때까지 세션을 이어서 실행한다.
-2. 완료되면 Phase 5 Evidence 문서를 작성하고 checklist/CURRENT.md/PORTFOLIO.md를 갱신한다.
-3. Phase 6(Ambient)에 착수한다.
+1. Phase 6(Ambient) 착수 전 ztunnel 배포 방식(waypoint 없이 L4 enrollment)과 자원 크기를 결정한다.
+2. ztunnel 노드 공유 자원 귀속 방식을 설계하고(Pod별이 아닌 노드 단위) app/ztunnel 자원 분리 쿼리를 추가한다.
+3. No Mesh와 동일한 seeded randomized block·반복 정책으로 paired 측정을 시작한다.
 
 ## 현재 한계
 
 - 로컬 Compose runner 결과는 자동으로 `INVALID` 처리되며 성능 Evidence로 사용할 수 없다.
-- 이 클러스터(노드당 allocatable 2 vCPU)는 p95 ≈5ms/p99 ≈8ms보다 작은 latency 차이를 통계적으로 구분하지 못한다. Phase 5 이후 Mesh profile 오버헤드가 이보다 작게 나오면 `확인된 차이 없음`으로만 보고해야 한다.
-- nominal(8 RPS) 조건은 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
+- 이 클러스터(노드당 allocatable 2 vCPU)는 p95 ≈5ms/p99 ≈8ms보다 작은 latency 차이를 통계적으로 구분하지 못한다. Mesh profile 오버헤드가 이보다 작게 나오면 `확인된 차이 없음`으로만 보고해야 한다.
+- nominal(8 RPS) 조건은 No Mesh에서 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
+- Sidecar profile은 세 조건 모두 15회 상한에도 latency 정밀도가 수렴하지 않았다(No Mesh보다 CI가 넓음). No-Mesh 대비 예비 비교(Evidence 문서 참고)는 방향성 참고용일 뿐이며, 정식 profile 간 통계 비교 도구는 아직 없다(Phase 8에서 구현 예정).
+- Sidecar 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5에서 가장 흔한 무효 요인). Phase 6(Ambient)도 같은 제약을 받을 것으로 예상한다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -115,8 +119,13 @@
 - Capacity retry: 27/28 RPS `COMPLETED`, telemetry factor 없음, Tempo restart 0
 - Formal baseline session 1 block 1: 8/17/22 RPS 각각 유효 run 1/10
 - Formal baseline 최종: nominal 15회(`INCONCLUSIVE_MAX_RUNS`), high 10회(`STOP_PRECISION_REACHED`), near-saturation 13회(`STOP_PRECISION_REACHED`)
-- Python 전체 unittest: 21 passed
-- Git: 스케줄러 버그 수정 `2e8faf4`, ADR-0023 `0a78a3b`, Phase 4 최종 Evidence 커밋 예정
+- Python 전체 unittest: 24 passed
+- Git: 스케줄러 버그 수정 `2e8faf4`, ADR-0023 `0a78a3b`, Phase 4 최종 Evidence `d697ec1`
+- Istio 설치: `istio-base`/`istiod` 1.30.3, istiod 요청 200m CPU/512Mi 메모리(ADR-0024), 노드 스케줄링 확인
+- Sidecar 주입: 7개 SYNC_CHAIN 서비스 `2/2 Running`, mTLS PERMISSIVE(Envoy config dump로 TLS+client cert 확인)
+- Sidecar formal baseline 최종: nominal/high/near-saturation 모두 15회 `INCONCLUSIVE_MAX_RUNS`
+- Sidecar 실측 proxy CPU: 0.0072~0.0086 core-s/req, 메모리 peak 약 294~306MiB (조건 간 거의 일정)
+- Git: ADR-0024 `829077b`, 스케줄러 일반화 `34f69b8`, throttle metric 수정 `20981cc`, 견고성 개선 `8afe58c`, Phase 5 최종 Evidence 커밋 예정
 
 ## 재개 절차
 

@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-25 · **진행 상태**: Phase 4 (No-Mesh baseline) 완료, Phase 5 진입 대기 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-27 · **진행 상태**: Phase 5 (Istio Sidecar baseline) 완료, Phase 6 진입 대기 · **시작일**: 2026-07-22
 
 ---
 
@@ -22,8 +22,8 @@ Service Mesh(Istio Sidecar/Ambient/Waypoint)를 온프레미스 Kubernetes에 �
 | 인프라 규모 | VMware Workstation 3-VM Kubernetes 1.36 (control-plane 1 + worker 2), Cilium 1.19 CNI/Gateway, MetalLB, Prometheus/Grafana/Loki/Tempo/OTel 풀스택 관측 |
 | 애플리케이션 | Java 25 + Spring Boot 4.1 기반 마이크로서비스 5종 (gateway/orchestrator/producer/worker/workload-target), Sync Chain·Fan-out·Kafka Async·Payload·Mixed-Resource 5개 통신 패턴 재현 |
 | 측정 자동화 | Python 기반 Experiment Runner + k6 부하 생성기, capacity discovery → bootstrap 95% CI 정지 규칙까지 자동화 (`experiments/` 약 1,600줄) |
-| 현재까지 확정 산출물 | No-Mesh 3-hop 동기 체인의 usable capacity `C* = 28 RPS` 규명, 절대 부하점 3종(nominal/high/near-saturation) 확정, **정식 baseline 반복측정 완료**(총 38개 유효 run) |
-| 커밋 수 | 28+ (2026-07-25 기준) |
+| 현재까지 확정 산출물 | No-Mesh/Sidecar 두 profile의 정식 baseline 반복측정 완료(No-Mesh 38회 + Sidecar 45회 유효 run), Istio 1.30.3 Sidecar 실측 proxy 비용(≈0.007~0.009 core-s/req, ≈300MiB) 확보 |
+| 커밋 수 | 35+ (2026-07-27 기준) |
 
 **한 줄 성과 예시 (이미 측정된 값)**: No-Mesh 3-hop 동기 체인에서 부하를 28→30 RPS로 **7.1%**만 늘렸는데
 p99 지연은 69.1ms→119.0ms로 **72.2%** 급증했다 — 이 임계점을 사전에 규명하지 않고 막연히 "여유 있어 보이는"
@@ -34,6 +34,12 @@ p99 지연은 69.1ms→119.0ms로 **72.2%** 급증했다 — 이 임계점을 �
 통과(`STOP_PRECISION_REACHED`)했다. nominal은 15회 상한까지 다 채웠지만 p99 지표 하나가 근소하게
 (8.9%) 기준을 넘지 못해 `INCONCLUSIVE_MAX_RUNS`로 명시적으로 결론을 유보했다 — 무리하게 통과시키지
 않고 한계를 그대로 기록한 것 자체가 이 프로젝트의 방법론적 원칙이다. (§6.2 참고)
+
+**Phase 5 최종 결과 한 줄 요약**: 같은 세 조건에서 Istio Sidecar profile을 15회씩(총 45회 유효 run) 측정한
+결과, 이번엔 세 조건 모두 `INCONCLUSIVE_MAX_RUNS`로 끝났다 — No-Mesh보다 latency 정밀도가 잘 수렴하지
+않는 현상 자체가 유의미한 관찰이다(Envoy를 통과하는 hop이 늘면서 run-to-run 변동성이 커진 것으로 추정).
+다만 Envoy sidecar 자체의 CPU/메모리 비용(≈0.007~0.009 core-s/request, ≈300MiB 피크 메모리)은 부하
+조건과 무관하게 안정적으로 직접 측정됐다. (§6.3 참고)
 
 ---
 
@@ -165,17 +171,17 @@ Experiment Runner (Python)
 |---|---|
 | 애플리케이션 | Java 25, Spring Boot 4.1, Gradle 9 Wrapper |
 | 플랫폼 | VMware Workstation 3-node Kubernetes 1.36 (kubeadm), Ubuntu 26.04 LTS, containerd |
-| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4 — 이후 Istio Sidecar/Ambient/Waypoint 추가 예정 |
+| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4, Istio 1.30.3 Sidecar(Ambient/Waypoint 추가 예정) |
 | 관측성 | Prometheus, Grafana, Loki, Tempo, OpenTelemetry Collector |
 | 부하·검증 | k6 (CONSTANT_ARRIVAL_RATE), Python 측정 자동화(`experiments/`, unittest 기반 회귀 테스트) |
 | 배포 | Helm (profile별 values 분리), Docker/GHCR 이미지 배포 |
 
-### 4.1 Mesh Profile 4종 (정의 — 실측은 Phase 5~7)
+### 4.1 Mesh Profile 4종
 
 | Profile | 구조 | 상태 |
 |---|---|---|
 | No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 완료 |
-| Sidecar | Pod마다 Envoy proxy 동반 | `[TODO: Phase 5]` |
+| Sidecar | Pod마다 Envoy proxy 동반 (Istio 1.30.3) | ✅ Phase 5 완료 |
 | Ambient | Node 공유 ztunnel (L4) | `[TODO: Phase 6]` |
 | Ambient + Waypoint | 선택적 L7 proxy 추가 | `[TODO: Phase 7]` |
 
@@ -190,8 +196,8 @@ Experiment Runner (Python)
 | 2 | Experiment Runner, k6 프로파일, Ground Truth 자동 수집 | ✅ 완료 |
 | 3 | VMware 3노드 Kubernetes, Cilium, 관측 스택, NetworkPolicy | ✅ 완료 |
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
-| 5 | Istio Sidecar 기준선 | 🔄 진입 대기 |
-| 6 | Ambient 기준선 | `[TODO]` |
+| 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
+| 6 | Ambient 기준선 | 🔄 진입 대기 |
 | 7 | Ambient + Waypoint 기준선 | `[TODO]` |
 | 8 | profile 비교와 병목 선정 | `[TODO]` |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
@@ -205,6 +211,14 @@ Experiment Runner (Python)
 - [x] Workload/부하 발생기 자체 병목 판정 (28 RPS에서 node CPU peak 36%, 부하발생기 CPU peak 5% — 자체 병목 아님)
 - [x] baseline run ID 승인
 - [x] Phase 4 Evidence `measured`
+
+### 5.2 Phase 5 세부 체크리스트
+
+- [x] Istio 버전/자원 크기 결정과 설치 (ADR-0024)
+- [x] injection/mTLS/traffic path 검증 (Envoy config dump로 실제 mTLS 확인)
+- [x] app/proxy 자원 분리 수집과 throttling 감지 gate
+- [x] paired core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate (§6.3, 15회 상한 도달로 종료)
+- [x] Phase 5 Evidence `measured`
 
 ---
 
@@ -256,6 +270,42 @@ p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한
 
 전체 Evidence: [2026-07-25 canonical baseline final](docs/evidence/performance/2026-07-25-canonical-baseline-final.md)
 
+### 6.3 정식 Istio Sidecar Baseline — 완료 (2026-07-27)
+
+No-Mesh와 동일한 절대 RPS(8/17/22)·128 VU·반복 정책으로 측정했다. Istio 1.30.3을 Helm으로 설치하고,
+`istio.io/rev=default` 라벨로 7개 SYNC_CHAIN 서비스에 sidecar를 주입했다(Kafka는 기존 scope 밖이라 제외).
+
+| 조건 | Target RPS | 유효 run | p95 median (95% CI) | p99 median (95% CI) | App CPU-s/req | Sidecar CPU-s/req | 정밀도 판정 |
+|---|---:|---:|---|---|---:|---:|---|
+| nominal | 8 | 15/15 | 30.08 ms (28.47–31.51) | 36.87 ms (33.92–38.46) | 0.0772 | 0.0086 | `INCONCLUSIVE_MAX_RUNS`(CPU만 미달) |
+| high | 17 | 15/15 | 29.63 ms (28.04–40.03) | 37.53 ms (32.93–49.29) | 0.0426 | 0.0074 | `INCONCLUSIVE_MAX_RUNS`(latency 미달) |
+| near-saturation | 22 | 15/15 | 28.88 ms (28.17–40.97) | 35.48 ms (33.09–56.20) | 0.0365 | 0.0072 | `INCONCLUSIVE_MAX_RUNS`(latency 미달) |
+
+**No-Mesh와 다른 패턴이 나온 것 자체가 흥미로운 결과다.** No-Mesh는 latency가 쉽게 수렴하고 CPU가 어려웠던
+반면, Sidecar는 반대로 latency(특히 high/near-saturation의 p95/p99 반폭이 6~11ms대로 No-Mesh의 3ms대보다
+2배 이상 넓음)가 어렵고 CPU/request는 오히려 잘 수렴했다. 가장 그럴듯한 해석은 요청마다 거치는 Envoy proxy
+hop이 늘면서(각 서비스 호출마다 클라이언트·서버 양쪽 sidecar를 통과) run 간 latency 변동성 자체가 커졌다는
+것이다.
+
+**실제로 직접 측정한 것과 아직 못한 것을 구분한다.** Envoy sidecar 자체의 CPU 비용(≈0.0072~0.0086
+core-seconds/request)과 메모리 비용(≈294~306 MiB, 부하 수준과 거의 무관하게 일정)은 세 조건에서 안정적으로
+직접 측정됐다 — 이건 확정적인 값이다. 반면 "Sidecar가 No-Mesh보다 latency를 얼마나 늘리는가"는 아직 정식
+결론이 아니다. 예비로 두 profile의 median을 단순 차감해보면 high 조건에서 p99가 +22.0%(+6.76ms) 늘었는데,
+이는 두 profile의 오차범위를 합산한 최소 감지폭(√(각 profile 반폭²의 합) ≈ 5.8ms)보다 크지만, 두 profile
+모두 이 지표에서 정밀도 게이트를 통과하지 못한 상태라 "확인된 차이"라고 단정하지 않았다. near-saturation은
+오히려 Sidecar가 더 빠르게 나왔는데(p99 −23.5%), 두 profile의 신뢰구간이 서로 겹쳐 노이즈와 구분이 안 되는
+경우였다. **엄밀한 두 profile 간 통계 비교 도구는 아직 없고, 이건 Phase 8에서 만들 계획이다** — 지금은
+"차이가 있어 보인다"와 "차이가 있다고 증명됐다"를 섞지 않기 위해 예비 관찰로만 기록했다.
+
+측정 도중 절반은 도구/인프라 문제였다: STRICT mTLS를 처음 적용했을 때 Prometheus(mesh 비구성원)가 7개 중
+6개 서비스를 스크레이프하지 못하는 회귀가 발생해 PERMISSIVE로 되돌렸고(서비스 간 트래픽은 여전히 자동으로
+mTLS 사용), 이 클러스터의 cAdvisor가 애초에 노출하지 않는 metric(`*_throttled_seconds_total`)을 잘못
+사용해 throttling 감지가 항상 null을 반환하던 버그도 스모크 테스트로 잡아냈다. 51회 시도 중 실제로 Envoy가
+CPU 쿼터를 다 쓴 사례(`PROXY_CPU_THROTTLED`)가 1건 발견되어 통계에서 정상적으로 제외됐다 — reduced
+resource request(ADR-0024)가 실측값을 인위적으로 누르지 않는다는 것을 이 게이트로 직접 확인했다.
+
+전체 Evidence: [2026-07-27 canonical sidecar baseline final](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -291,7 +341,29 @@ p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한
    정책 변경 시점에 이미 돌고 있던 프로세스가 구버전 기준을 메모리에 들고 있어 불필요한 재측정을 할
    위험을 발견하고, warm-up 단계(측정 낭비 최소 시점)에 맞춰 안전하게 재시작했다.
 
-`[TODO: Phase 5 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
+7. **자원 request와 limit을 분리해 측정 왜곡을 원천 차단**: Istio 기본 자원 요청값(istiod 500m CPU/2GiB
+   메모리, sidecar 100m/128MiB)을 그대로 쓰면 이 클러스터(노드당 2 vCPU)에서 worst-case 스케줄링 실패
+   위험이 있었다. request만 대폭 축소하고 실제 사용량을 결정하는 limit은 Istio 기본값을 그대로 둬서,
+   "측정하려는 proxy 비용 자체가 인위적으로 눌리는" 상황을 피했다. 이후 실제로 CPU throttling이 1회
+   발생했을 때 이를 게이트로 감지·제외해, 이 설계 판단이 이론이 아니라 실측으로 검증됐다.
+8. **STRICT mTLS가 관측 인프라를 깨뜨리는 것을 발견하고 근본 원인으로 해결**: mTLS를 STRICT로 설정하자
+   Prometheus가 7개 중 6개 서비스 스크레이프에 실패했다(mesh 비구성원인 Prometheus가 mTLS 핸드셰이크를
+   할 수 없어서). 스크레이프 예외를 늘리는 대신, Istio의 자동 상호 TLS 승격이 이미 서비스 간 트래픽은
+   mTLS로 보호하면서 비-mesh 클라이언트에는 평문 fallback을 제공한다는 점을 활용해 PERMISSIVE로 되돌리는
+   더 근본적인 해결을 택했다. Envoy의 실시간 config dump를 직접 열어 "여전히 서비스 간 통신은 mTLS를
+   쓴다"는 것을 확인한 뒤에 이 판단을 내렸다.
+9. **존재하지 않는 metric에 의존하던 감지 로직을 실제 클러스터로 검증해 잡아냄**: CPU throttling 감지에
+   표준적으로 쓰이는 `container_cpu_cfs_throttled_seconds_total`을 사용했는데, 스모크 테스트에서 항상
+   `null`이 반환되는 것을 발견했다. 이 클러스터의 cAdvisor 버전이 해당 metric을 아예 노출하지 않는다는
+   것을 전수 쿼리로 확인하고 실제 존재하는 `*_periods_total`로 교체했다 — 코드를 배포하기 전에 "감지
+   로직이 진짜로 작동하는지"를 실측으로 증명한 사례다.
+10. **단일 실패가 몇 시간짜리 무인 측정 전체를 죽이는 구조적 결함 발견·수정**: 22 RPS 부하 중
+    `benchmark-gateway`의 liveness probe가 타임아웃돼 Pod가 재시작됐고, 그로 인한 순간 오류율 급증이
+    k6의 임계치를 넘겨 비정상 종료됐다. 이 예외가 스케줄러 프로세스 전체를 죽이는 구조였다는 걸 발견하고,
+    실패를 `FAILED` run으로 기록한 뒤 다음 조건으로 계속 진행하도록 고쳤다 — 무인 다중 세션 측정이
+    끊기지 않고 자동으로 이어지게 만든 신뢰성 개선이다.
+
+`[TODO: Phase 6 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
 ---
 
@@ -299,7 +371,7 @@ p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한
 
 | Phase | 목표 | 진입 조건 |
 |---|---|---|
-| 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline |
+| 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | Phase 6 완료 |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | Phase 5~7 완료 |
@@ -307,7 +379,6 @@ p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
-`[TODO: Phase 5 착수 시 Istio 버전, injection 방식, 클러스터 자원 확장 여부 기록]`
 `[TODO: Phase 6~7 ztunnel/Waypoint 관련 수치]`
 `[TODO: Phase 8 병목 후보 3개 이상과 지지/반대 Evidence]`
 `[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
@@ -351,8 +422,10 @@ p95 ≈5ms/p99 ≈8ms보다 작은 차이를 통계적으로 구분하지 못한
 | 아키텍처 | [docs/02-architecture.md](docs/02-architecture.md) |
 | 개념·용어 | [docs/03-concepts-and-glossary.md](docs/03-concepts-and-glossary.md) |
 | 반복측정 정책 | [ADR-0014](docs/decisions/0014-measurement-repetition-and-load-policy.md), [ADR-0023](docs/decisions/0023-hybrid-absolute-relative-precision-gate.md) |
+| Istio Sidecar 설치 결정 | [ADR-0024](docs/decisions/0024-istio-sidecar-install.md) |
 | Capacity Discovery Evidence | [docs/evidence/performance/2026-07-23-canonical-chain-capacity.md](docs/evidence/performance/2026-07-23-canonical-chain-capacity.md) |
 | No-Mesh Baseline 최종 Evidence | [docs/evidence/performance/2026-07-25-canonical-baseline-final.md](docs/evidence/performance/2026-07-25-canonical-baseline-final.md) |
+| Sidecar Baseline 최종 Evidence | [docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

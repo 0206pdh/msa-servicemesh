@@ -56,9 +56,9 @@
 
 - [x] injection/mTLS/traffic path 검증
 - [x] app/proxy 자원 분리
-- [ ] paired core 조건 10~15회와 CI 정밀도 Gate — 진행 중
-- [ ] 기능과 비용 Evidence
-- [ ] Phase 5 Evidence measured
+- [x] paired core 조건 10~15회와 CI 정밀도 Gate (세 조건 모두 15회 `INCONCLUSIVE_MAX_RUNS`)
+- [x] 기능과 비용 Evidence (proxy CPU/메모리 실측, No-Mesh 대비 예비 비교는 Phase 8 정식 비교 전까지 잠정)
+- [x] Phase 5 Evidence measured
 
 ## Phase 6 — Ambient
 
