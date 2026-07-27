@@ -8,6 +8,10 @@ sidecar:
   istioNamespace: istio-system
   xdsPort: 15012
 
+ambient:
+  enabled: false
+  hbonePort: 15008
+
 javaResources: &javaResources
   requests:
     cpu: 100m

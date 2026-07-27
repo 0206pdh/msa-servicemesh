@@ -1,0 +1,11 @@
+profile: ambient
+
+global:
+  tracingSamplingProbability: "1.0"
+
+sidecar:
+  enabled: false
+
+ambient:
+  enabled: true
+  hbonePort: 15008

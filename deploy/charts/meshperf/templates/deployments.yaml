@@ -63,24 +63,21 @@ spec:
               value: {{ $value | quote }}
             {{- end }}
           readinessProbe:
-            httpGet:
-              path: /actuator/health/readiness
-              port: http
+            exec:
+              command: ["wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/actuator/health/readiness"]
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 12
           startupProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: http
+            exec:
+              command: ["wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/actuator/health/liveness"]
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 36
           livenessProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: http
+            exec:
+              command: ["wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/actuator/health/liveness"]
             periodSeconds: 10
             timeoutSeconds: 2
           resources:
