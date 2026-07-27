@@ -89,6 +89,14 @@ def extract(summary: dict) -> dict[str, float | None]:
         )
         extracted["sidecarMemoryPeakBytes"] = sidecar.get("memoryPeakBytes")
         extracted["sidecarCpuThrottledPeriods"] = sidecar.get("cpuThrottledPeriods")
+    ztunnel = summary.get("resources", {}).get("ztunnel")
+    if ztunnel is not None:
+        # Not normalized per-request: ztunnel is a per-node shared DaemonSet, not a
+        # per-pod proxy, so "cost per request" would misattribute a value that other
+        # workloads on the same node also contribute to (see ADR-0025).
+        extracted["ztunnelCpuCoreSecondsAbsolute"] = ztunnel.get("cpuCoreSeconds")
+        extracted["ztunnelMemoryPeakBytes"] = ztunnel.get("memoryPeakBytes")
+        extracted["ztunnelCpuThrottledPeriods"] = ztunnel.get("cpuThrottledPeriods")
     return extracted
 
 

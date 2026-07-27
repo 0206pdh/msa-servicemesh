@@ -216,6 +216,26 @@ class KubernetesAdapter:
                 f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="{self.namespace}",'
                 f'container="istio-proxy"}}[{window}]))'
             )),
+            # ztunnel is a per-node DaemonSet shared by every ambient-enrolled pod on
+            # that node, not a per-pod sidecar. These are cluster-wide totals across
+            # all ztunnel instances during the window, not a value attributable to
+            # this experiment alone (see ADR-0025).
+            "ztunnelCpuCoreSeconds": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_usage_seconds_total{{namespace="istio-system",'
+                f'pod=~"ztunnel-.*",container="istio-proxy"}}[{window}]))'
+            )),
+            "ztunnelCpuPeakCores": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(rate(container_cpu_usage_seconds_total{{namespace="istio-system",'
+                f'pod=~"ztunnel-.*",container="istio-proxy"}}[30s])))[{window}:15s])'
+            )),
+            "ztunnelMemoryPeakBytes": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(container_memory_working_set_bytes{{namespace="istio-system",'
+                f'pod=~"ztunnel-.*",container="istio-proxy"}}))[{window}:15s])'
+            )),
+            "ztunnelCpuThrottledPeriods": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="istio-system",'
+                f'pod=~"ztunnel-.*",container="istio-proxy"}}[{window}]))'
+            )),
             "networkRxBytes": self.scalar(self.prometheus_query(
                 f'sum(increase(container_network_receive_bytes_total{{namespace="{self.namespace}"}}[{window}]))'
             )),
@@ -250,6 +270,8 @@ class KubernetesAdapter:
             factors.append("NODE_CPU_HEADROOM_LOW")
         if (snapshot.get("sidecarCpuThrottledPeriods") or 0) > 0:
             factors.append("PROXY_CPU_THROTTLED")
+        if (snapshot.get("ztunnelCpuThrottledPeriods") or 0) > 0:
+            factors.append("ZTUNNEL_CPU_THROTTLED")
         return factors
 
     def trace_marker(self, run_id: str) -> dict:

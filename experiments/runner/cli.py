@@ -258,6 +258,7 @@ class Runner:
         empty_resource = {"cpuCoreSeconds": None, "cpuPeakCores": None, "memoryPeakBytes": None, "networkRxBytes": None, "networkTxBytes": None}
         application_resource = empty_resource
         sidecar_resource = None
+        ztunnel_resource = None
         node_resource = empty_resource
         if window_snapshot:
             application_resource = {"cpuCoreSeconds": window_snapshot.get("applicationCpuCoreSeconds"),
@@ -270,13 +271,19 @@ class Runner:
                                     "cpuPeakCores": window_snapshot.get("sidecarCpuPeakCores"),
                                     "memoryPeakBytes": window_snapshot.get("sidecarMemoryPeakBytes"),
                                     "cpuThrottledPeriods": window_snapshot.get("sidecarCpuThrottledPeriods")}
+            if window_snapshot.get("ztunnelCpuCoreSeconds") is not None:
+                ztunnel_resource = {"cpuCoreSeconds": window_snapshot.get("ztunnelCpuCoreSeconds"),
+                                    "cpuPeakCores": window_snapshot.get("ztunnelCpuPeakCores"),
+                                    "memoryPeakBytes": window_snapshot.get("ztunnelMemoryPeakBytes"),
+                                    "cpuThrottledPeriods": window_snapshot.get("ztunnelCpuThrottledPeriods"),
+                                    "attribution": "cluster-wide-shared-not-per-request"}
             node_resource = {**empty_resource, "cpuPeakPercent": window_snapshot.get("nodeCpuPeakPercent"),
                              "memoryMinimumByNode": window_snapshot.get("nodeMemoryMinimum")}
         return {"runId": spec["runId"], "profile": spec["profile"], "scenario": spec["scenario"], "status": status,
                 "window": {"start": started, "end": ended}, "sampleCount": sample_count,
                 "metrics": {"throughputRps": requests.get("rate"), "errorRate": failed,
                             "latencyMs": {"p50": values.get("med"), "p95": values.get("p(95)"), "p99": values.get("p(99)")}},
-                "resources": {"application": application_resource, "sidecar": sidecar_resource, "ztunnel": None, "waypoint": None,
+                "resources": {"application": application_resource, "sidecar": sidecar_resource, "ztunnel": ztunnel_resource, "waypoint": None,
                               "node": node_resource, "loadGenerator": {"cpuPeakPercent": load_cpu_peak,
                               "sampleCount": len(load_samples)}},
                 "artifacts": {"manifest": "manifest.json", "raw": "raw/", "queries": {}}, "invalidatingFactors": invalid}
