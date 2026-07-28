@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-27 · **진행 상태**: Phase 5 (Istio Sidecar baseline) 완료, Phase 6 진입 대기 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 6 (Istio Ambient baseline) 고정 replica 측정 완료, replica/node 확장 측정 잔여 · **시작일**: 2026-07-22
 
 ---
 
@@ -22,8 +22,8 @@ Service Mesh(Istio Sidecar/Ambient/Waypoint)를 온프레미스 Kubernetes에 �
 | 인프라 규모 | VMware Workstation 3-VM Kubernetes 1.36 (control-plane 1 + worker 2), Cilium 1.19 CNI/Gateway, MetalLB, Prometheus/Grafana/Loki/Tempo/OTel 풀스택 관측 |
 | 애플리케이션 | Java 25 + Spring Boot 4.1 기반 마이크로서비스 5종 (gateway/orchestrator/producer/worker/workload-target), Sync Chain·Fan-out·Kafka Async·Payload·Mixed-Resource 5개 통신 패턴 재현 |
 | 측정 자동화 | Python 기반 Experiment Runner + k6 부하 생성기, capacity discovery → bootstrap 95% CI 정지 규칙까지 자동화 (`experiments/` 약 1,600줄) |
-| 현재까지 확정 산출물 | No-Mesh/Sidecar 두 profile의 정식 baseline 반복측정 완료(No-Mesh 38회 + Sidecar 45회 유효 run), Istio 1.30.3 Sidecar 실측 proxy 비용(≈0.007~0.009 core-s/req, ≈300MiB) 확보 |
-| 커밋 수 | 35+ (2026-07-27 기준) |
+| 현재까지 확정 산출물 | No-Mesh/Sidecar/Ambient 세 profile의 정식 baseline 반복측정 완료(38+45+39회 유효 run), Sidecar/ztunnel 실측 자원 비용 확보, Ambient 설치 중 실제 호환성 결함 2건 발견·수정 |
+| 커밋 수 | 40+ (2026-07-29 기준) |
 
 **한 줄 성과 예시 (이미 측정된 값)**: No-Mesh 3-hop 동기 체인에서 부하를 28→30 RPS로 **7.1%**만 늘렸는데
 p99 지연은 69.1ms→119.0ms로 **72.2%** 급증했다 — 이 임계점을 사전에 규명하지 않고 막연히 "여유 있어 보이는"
@@ -40,6 +40,15 @@ p99 지연은 69.1ms→119.0ms로 **72.2%** 급증했다 — 이 임계점을 �
 않는 현상 자체가 유의미한 관찰이다(Envoy를 통과하는 hop이 늘면서 run-to-run 변동성이 커진 것으로 추정).
 다만 Envoy sidecar 자체의 CPU/메모리 비용(≈0.007~0.009 core-s/request, ≈300MiB 피크 메모리)은 부하
 조건과 무관하게 안정적으로 직접 측정됐다. (§6.3 참고)
+
+**Phase 6 최종 결과 한 줄 요약**: Istio Ambient(ztunnel)를 같은 세 조건으로 측정한 결과 nominal(10회)과
+near-saturation(14회)은 정밀도 기준을 통과했고 high만 15회 상한에도 p99가 수렴하지 않았다 — No-Mesh와
+Sidecar 사이 중간쯤 되는 수렴 패턴이다. ztunnel(Rust 기반, 노드당 1개 공유)의 메모리 사용량은 Envoy
+sidecar(Pod당 ≈300MiB)의 1/20 이하(≈17MiB)로 훨씬 가벼웠다. 설치 과정에서 이 클러스터의 Cilium
+설정과 Istio Ambient 간 실제 호환성 문제 두 건(kubelet probe가 ambient 트래픽 캡처에 걸려 전체 pod가
+crash-loop한 문제, HBONE 포트가 기존 NetworkPolicy에 안 열려있던 문제)을 발견해 근본 원인까지 추적해
+해결했다. 다만 Pod replica 수 증가에 따른 ztunnel 공유 비용의 확장 특성(가설 1의 핵심 검증 대상)은 아직
+측정하지 않았고, Phase 8 병목 분석 전에 별도로 수행해야 할 잔여 작업으로 남아있다. (§6.4 참고)
 
 ---
 
@@ -171,7 +180,7 @@ Experiment Runner (Python)
 |---|---|
 | 애플리케이션 | Java 25, Spring Boot 4.1, Gradle 9 Wrapper |
 | 플랫폼 | VMware Workstation 3-node Kubernetes 1.36 (kubeadm), Ubuntu 26.04 LTS, containerd |
-| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4, Istio 1.30.3 Sidecar(Ambient/Waypoint 추가 예정) |
+| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4, Istio 1.30.3 Sidecar+Ambient(ztunnel/istio-cni, Waypoint 추가 예정) |
 | 관측성 | Prometheus, Grafana, Loki, Tempo, OpenTelemetry Collector |
 | 부하·검증 | k6 (CONSTANT_ARRIVAL_RATE), Python 측정 자동화(`experiments/`, unittest 기반 회귀 테스트) |
 | 배포 | Helm (profile별 values 분리), Docker/GHCR 이미지 배포 |
@@ -182,7 +191,7 @@ Experiment Runner (Python)
 |---|---|---|
 | No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 완료 |
 | Sidecar | Pod마다 Envoy proxy 동반 (Istio 1.30.3) | ✅ Phase 5 완료 |
-| Ambient | Node 공유 ztunnel (L4) | `[TODO: Phase 6]` |
+| Ambient | Node 공유 ztunnel (L4) | ✅ Phase 6 고정 replica 완료, 확장 측정 잔여 |
 | Ambient + Waypoint | 선택적 L7 proxy 추가 | `[TODO: Phase 7]` |
 
 ---
@@ -197,7 +206,7 @@ Experiment Runner (Python)
 | 3 | VMware 3노드 Kubernetes, Cilium, 관측 스택, NetworkPolicy | ✅ 완료 |
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
-| 6 | Ambient 기준선 | 🔄 진입 대기 |
+| 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
 | 7 | Ambient + Waypoint 기준선 | `[TODO]` |
 | 8 | profile 비교와 병목 선정 | `[TODO]` |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
@@ -219,6 +228,15 @@ Experiment Runner (Python)
 - [x] app/proxy 자원 분리 수집과 throttling 감지 gate
 - [x] paired core 조건 유효 run 최소 10회와 bootstrap CI 정밀도 Gate (§6.3, 15회 상한 도달로 종료)
 - [x] Phase 5 Evidence `measured`
+
+### 5.3 Phase 6 세부 체크리스트
+
+- [x] ztunnel/istio-cni 설치와 노드 단위 공유 자원 귀속 모델 결정 (ADR-0025)
+- [x] enrollment/HBONE/mTLS 실제 경로 검증 (ztunnel access log로 양방향 SPIFFE identity 확인)
+- [x] ztunnel 자원을 Pod당이 아닌 노드/클러스터 단위 절대값으로 수집
+- [x] 고정 replica에서 paired core 조건 유효 run 최소 10회 (§6.4)
+- [ ] **replica/node 확장에 따른 공유 비용 측정 — 잔여 작업**
+- [x] Phase 6 Evidence `measured` (고정 replica 범위 한정)
 
 ---
 
@@ -306,6 +324,53 @@ resource request(ADR-0024)가 실측값을 인위적으로 누르지 않는다�
 
 전체 Evidence: [2026-07-27 canonical sidecar baseline final](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md)
 
+### 6.4 정식 Istio Ambient Baseline — 고정 replica 완료 (2026-07-29)
+
+No-Mesh/Sidecar와 동일한 절대 RPS·반복 정책으로 측정했다. Istio ztunnel + istio-cni 1.30.3을 설치하고,
+`benchmark` namespace를 `istio.io/dataplane-mode=ambient`로 전환했다(Sidecar와 달리 Pod별 주입이 아니라
+namespace 단위 enrollment).
+
+| 조건 | Target RPS | 유효 run | p95 median (95% CI) | p99 median (95% CI) | App CPU-s/req | 정밀도 판정 |
+|---|---:|---:|---|---|---:|---|
+| nominal | 8 | 10/15 | 30.08 ms (28.01–33.68) | 39.50 ms (35.34–45.95) | 0.0751 | `STOP_PRECISION_REACHED` |
+| high | 17 | 15/15 | 31.76 ms (28.28–33.90) | 43.15 ms (36.87–56.86) | 0.0439 | `INCONCLUSIVE_MAX_RUNS`(p99만 미달) |
+| near-saturation | 22 | 14/15 | 30.24 ms (27.51–33.45) | 41.08 ms (34.51–50.00) | 0.0375 | `STOP_PRECISION_REACHED` |
+
+**세 profile 중 가장 균형 잡힌 수렴 패턴이다.** No-Mesh는 2/3 조건이 쉽게 수렴, Sidecar는 0/3, Ambient는
+2/3(nominal, near-saturation)가 수렴했다. `high`만 p99가 15회 상한에도 미달했는데, 그 반폭(10.00ms)이
+지금까지 측정한 세 profile 통틀어 가장 넓은 단일 미달 폭이었다.
+
+**ztunnel은 Sidecar와 근본적으로 다른 종류의 숫자를 남긴다.** ztunnel은 Pod마다 붙는 게 아니라 노드마다
+1개씩 떠서 그 노드의 모든 enrolled Pod 트래픽을 처리하는 공유 프로세스다. 그래서 이번 측정에서는 Envoy처럼
+"request 하나당 얼마"로 정규화하지 않고, 측정 창 동안 클러스터 전체 ztunnel 인스턴스가 쓴 누적 CPU-초와
+메모리 peak를 그대로 기록했다(≈73~82 누적 core-초, 메모리 peak ≈16.7~16.9MiB). 메모리만 놓고 보면 Envoy
+sidecar(Pod당 ≈300MiB)의 **1/20 미만**으로, Rust로 작성된 ztunnel의 경량성과 "Pod당 1개 vs 노드당 1개"라는
+근본적으로 다른 설계가 그대로 드러난다.
+
+**설치 과정에서 실제 인프라 호환성 문제를 두 건 발견하고 근본 원인까지 추적해 해결했다.** 이 클러스터의
+Cilium(kube-proxy-replacement + VXLAN)과 Istio Ambient 조합은 사전에 위험 요인으로 지목해뒀던 조합이었고,
+실제로 문제가 터졌다.
+
+1. Ambient 활성화 직후 7개 SYNC_CHAIN Pod 전부가 `0/1`로 멈춰 계속 재시작을 반복했다. 원인은 kubelet이
+   Pod IP로 직접 보내는 상태 확인(probe)이 Ambient의 트래픽 캡처 규칙에 걸려 응답을 못 받고 타임아웃되는
+   것이었다 — 애플리케이션 자체는 정상 기동한 상태였다. probe를 Pod IP 대상 HTTP 확인에서 **loopback
+   (127.0.0.1) 대상 exec 확인**으로 바꿔서, Cilium 설정은 전혀 건드리지 않고 해결했다.
+2. probe 문제를 고친 뒤에도 서비스 간 실제 호출은 계속 실패했다. ztunnel 로그가 원인을 스스로 알려줬다 —
+   **"NetworkPolicy가 HBONE 포트 15008을 막고 있을 수 있다"**는 메시지였다. Ambient의 실제 통신 방식은
+   Sidecar의 로컬 iptables 리다이렉트와 달리 ztunnel 간 포트 15008(HBONE 터널)을 실제로 타는데, 기존
+   NetworkPolicy는 8080/9092/9093만 허용하고 있었다. 기존 서비스 간 허용 규칙에 15008을 추가해서(No-Mesh/
+   Sidecar에는 영향 없도록 값으로 게이트) 해결했다.
+
+두 수정 모두 Cilium의 핵심 라우팅 설정은 전혀 바꾸지 않았다 — 미리 "이 수준의 변경이 필요하면 진행 전에
+확인받는다"고 정해둔 기준선을 넘지 않는 범위에서 해결됐다.
+
+**아직 안 한 것도 정직하게 남긴다.** Phase 6 문서(`docs/phases/phase-06-istio-ambient.md`)에 명시된
+"Pod/worker replica와 노드 수 증가에 따른 공유 비용 측정"은 이번 측정 범위에 포함되지 않았다 — 이건
+가설 1("Sidecar의 Pod별 비용과 Ambient의 노드 공유 비용은 Pod 수 증가 시 다른 형태로 확장된다")을 직접
+검증하는 핵심 데이터라, Phase 8 병목 분석에 들어가기 전에 별도로 수행해야 하는 잔여 작업으로 명시해뒀다.
+
+전체 Evidence: [2026-07-29 canonical ambient baseline final](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -363,7 +428,26 @@ resource request(ADR-0024)가 실측값을 인위적으로 누르지 않는다�
     실패를 `FAILED` run으로 기록한 뒤 다음 조건으로 계속 진행하도록 고쳤다 — 무인 다중 세션 측정이
     끊기지 않고 자동으로 이어지게 만든 신뢰성 개선이다.
 
-`[TODO: Phase 6 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
+11. **알려진 위험 요인이 실제로 현실화된 것을 미리 대비한 절차로 안전하게 처리**: Ambient 설치 전에
+    "이 클러스터의 Cilium 설정과 Istio Ambient 조합은 알려진 마찰이 있는 조합이니, 문제가 생기면 실측으로
+    확인하고, Cilium 핵심 설정을 바꿔야 할 정도면 진행 전에 사용자에게 확인한다"는 기준을 ADR에 미리
+    문서화해뒀다. 실제로 전체 pod가 crash-loop하는 문제가 터졌을 때, 이 기준 덕분에 "지금 발견한 문제가
+    미리 정해둔 '확인 필요' 임계값을 넘는지"를 판단 기준으로 삼아 빠르게 의사결정할 수 있었다 — 첫 번째
+    문제(probe 캡처)는 애플리케이션 레벨 우회로 해결 가능했지만, 근본 원인이 불확실한 단계에서는 먼저
+    사용자에게 확인을 구했다.
+12. **에러 메시지가 스스로 알려주는 원인을 놓치지 않고 근본 해결**: 두 번째 호환성 문제(HBONE 트래픽 차단)는
+    ztunnel의 access log가 "NetworkPolicy가 포트 15008을 막고 있을 수 있다"는 메시지를 직접 출력했다. 이걸
+    무시하고 임시방편(예: 전체 egress 허용)으로 넘어가는 대신, Ambient의 실제 wire protocol(ztunnel-to
+    -ztunnel HBONE 터널링)이 Sidecar의 로컬 iptables 리다이렉트와 근본적으로 다르다는 것을 이해하고, 기존
+    NetworkPolicy 토폴로지(어떤 서비스가 어떤 서비스를 호출하는지)를 그대로 유지한 채 필요한 포트만 정확히
+    추가했다 — 보안 경계를 넓히지 않으면서 문제를 해결했다.
+13. **측정 항목이 실제로 다른 종류의 값을 요구한다는 것을 사전에 설계로 반영**: ztunnel은 Pod당 하나가
+    아니라 노드당 하나가 여러 Pod를 공유하는 프로세스라서, Sidecar처럼 "request당 비용"으로 정규화하면
+    다른 워크로드가 공유하는 비용까지 이 실험 탓으로 돌리는 통계적 오류가 생긴다. 이를 실측 전에 ADR로
+    미리 인식하고, 코드에도 "cluster-wide-shared-not-per-request"라는 명시적 attribution 필드를 남겨
+    나중에 이 숫자를 잘못 해석할 위험을 차단했다.
+
+`[TODO: Phase 7 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
 ---
 
@@ -372,14 +456,14 @@ resource request(ADR-0024)가 실측값을 인위적으로 누르지 않는다�
 | Phase | 목표 | 진입 조건 |
 |---|---|---|
 | 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
-| 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 |
+| 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | Phase 6 완료 |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | Phase 5~7 완료 |
 | 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | Phase 8 승인 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
-`[TODO: Phase 6~7 ztunnel/Waypoint 관련 수치]`
+`[TODO: Phase 6 replica/node 확장 측정 수치와 Phase 7 Waypoint 관련 수치]`
 `[TODO: Phase 8 병목 후보 3개 이상과 지지/반대 Evidence]`
 `[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
 `[TODO: Phase 10 장애 주입 시나리오와 회복 지표]`
@@ -423,9 +507,11 @@ resource request(ADR-0024)가 실측값을 인위적으로 누르지 않는다�
 | 개념·용어 | [docs/03-concepts-and-glossary.md](docs/03-concepts-and-glossary.md) |
 | 반복측정 정책 | [ADR-0014](docs/decisions/0014-measurement-repetition-and-load-policy.md), [ADR-0023](docs/decisions/0023-hybrid-absolute-relative-precision-gate.md) |
 | Istio Sidecar 설치 결정 | [ADR-0024](docs/decisions/0024-istio-sidecar-install.md) |
+| Istio Ambient 설치 결정 | [ADR-0025](docs/decisions/0025-ambient-mesh-install.md) |
 | Capacity Discovery Evidence | [docs/evidence/performance/2026-07-23-canonical-chain-capacity.md](docs/evidence/performance/2026-07-23-canonical-chain-capacity.md) |
 | No-Mesh Baseline 최종 Evidence | [docs/evidence/performance/2026-07-25-canonical-baseline-final.md](docs/evidence/performance/2026-07-25-canonical-baseline-final.md) |
 | Sidecar Baseline 최종 Evidence | [docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md) |
+| Ambient Baseline 최종 Evidence | [docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

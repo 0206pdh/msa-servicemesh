@@ -5,10 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 5 — Istio Sidecar 완료, Phase 6 진입 대기
-- Infrastructure Step: Istio 1.30.3 설치와 정식 반복측정 완료
-- Status: phase-6-not-started
-- Last updated: 2026-07-27
+- Overall Phase: Phase 6 — Istio Ambient 고정 replica baseline 완료, replica/node 확장 측정 잔여
+- Infrastructure Step: ztunnel/istio-cni 설치와 고정 replica 정식 반복측정 완료
+- Status: phase-6-scaling-study-pending-phase-7-not-started
+- Last updated: 2026-07-29
 
 ## 완료된 기준점
 
@@ -72,12 +72,17 @@
 - [x] 스케줄러가 단일 run 실패로 전체 세션이 죽지 않도록 견고성 개선 (commit `8afe58c`)
 - [x] Phase 5 Sidecar 정식 반복측정 완료: 세 조건 모두 15회 `INCONCLUSIVE_MAX_RUNS`
 - [x] Phase 5 Evidence와 exit Gate 완료
+- [x] ztunnel/istio-cni 1.30.3 설치와 노드 단위 공유 자원 귀속 모델 결정 (ADR-0025)
+- [x] Ambient enrollment 실제 검증: kubelet probe가 ambient 캡처에 걸려 crash-loop하는 문제와 HBONE 포트 15008이 NetworkPolicy에서 막혀있던 문제를 실측으로 발견·수정
+- [x] ztunnel CPU/메모리를 노드 단위 절대값으로 수집(Pod당 정규화 안 함), throttling 게이트 추가
+- [x] Ambient 고정 replica(1개) 정식 반복측정 완료: nominal 10회/near-saturation 14회 `STOP_PRECISION_REACHED`, high 15회 `INCONCLUSIVE_MAX_RUNS`
+- [x] Phase 6 고정 replica baseline Evidence 완료
 
 ## 다음 작업
 
-1. Phase 6(Ambient) 착수 전 ztunnel 배포 방식(waypoint 없이 L4 enrollment)과 자원 크기를 결정한다.
-2. ztunnel 노드 공유 자원 귀속 방식을 설계하고(Pod별이 아닌 노드 단위) app/ztunnel 자원 분리 쿼리를 추가한다.
-3. No Mesh와 동일한 seeded randomized block·반복 정책으로 paired 측정을 시작한다.
+1. **Phase 6 잔여**: Pod/worker replica와 노드 수 증가에 따른 ztunnel 공유 비용 확장 특성을 측정한다 (가설 1의 핵심 근거, 아직 미착수). Phase 8 병목 분석 전에 반드시 완료해야 한다.
+2. Phase 7(Waypoint) 착수: 선택적 L7 proxy 배치 방식과 버전을 결정한다.
+3. Waypoint 통과 트래픽과 replica에 따른 병목 여부를 같은 절대 RPS로 측정한다.
 
 ## 현재 한계
 
@@ -85,7 +90,10 @@
 - 이 클러스터(노드당 allocatable 2 vCPU)는 p95 ≈5ms/p99 ≈8ms보다 작은 latency 차이를 통계적으로 구분하지 못한다. Mesh profile 오버헤드가 이보다 작게 나오면 `확인된 차이 없음`으로만 보고해야 한다.
 - nominal(8 RPS) 조건은 No Mesh에서 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
 - Sidecar profile은 세 조건 모두 15회 상한에도 latency 정밀도가 수렴하지 않았다(No Mesh보다 CI가 넓음). No-Mesh 대비 예비 비교(Evidence 문서 참고)는 방향성 참고용일 뿐이며, 정식 profile 간 통계 비교 도구는 아직 없다(Phase 8에서 구현 예정).
-- Sidecar 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5에서 가장 흔한 무효 요인). Phase 6(Ambient)도 같은 제약을 받을 것으로 예상한다.
+- Ambient는 high 조건만 15회 상한에도 p99가 수렴하지 않았다(세 profile 중 가장 넓은 단일 미달 폭, 10.00ms).
+- Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint)도 같은 제약을 받을 것으로 예상한다.
+- **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
+- kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -125,7 +133,12 @@
 - Sidecar 주입: 7개 SYNC_CHAIN 서비스 `2/2 Running`, mTLS PERMISSIVE(Envoy config dump로 TLS+client cert 확인)
 - Sidecar formal baseline 최종: nominal/high/near-saturation 모두 15회 `INCONCLUSIVE_MAX_RUNS`
 - Sidecar 실측 proxy CPU: 0.0072~0.0086 core-s/req, 메모리 peak 약 294~306MiB (조건 간 거의 일정)
-- Git: ADR-0024 `829077b`, 스케줄러 일반화 `34f69b8`, throttle metric 수정 `20981cc`, 견고성 개선 `8afe58c`, Phase 5 최종 Evidence 커밋 예정
+- Git: ADR-0024 `829077b`, 스케줄러 일반화 `34f69b8`, throttle metric 수정 `20981cc`, 견고성 개선 `8afe58c`, Phase 5 최종 Evidence `fb7d5e1`
+- ztunnel 설치: istio-cni + ztunnel 1.30.3, istiod에 `PILOT_ENABLE_AMBIENT=true` 추가 필요했음
+- Ambient 호환성 수정 2건: probe를 httpGet(pod IP)→exec wget(127.0.0.1)로 전환, NetworkPolicy에 HBONE 포트 15008 추가(ambient.enabled 게이트)
+- Ambient formal baseline 최종: nominal 10회(`STOP_PRECISION_REACHED`)/high 15회(`INCONCLUSIVE_MAX_RUNS`)/near-saturation 14회(`STOP_PRECISION_REACHED`)
+- ztunnel 실측: 누적 CPU 72.9~82.4 core-s/run window(클러스터 전체, per-request 아님), 메모리 peak 약 16.7~16.9MiB (Envoy 대비 훨씬 가벼움)
+- Git: ADR-0025 `39cf266`, Ambient 지원과 호환성 수정 `b63c386`, ztunnel 자원 수집 `e35d391`, Phase 6 최종 Evidence 커밋 예정
 
 ## 재개 절차
 

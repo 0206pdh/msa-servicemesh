@@ -62,11 +62,12 @@
 
 ## Phase 6 — Ambient
 
-- [ ] enrollment/HBONE/ztunnel 경로 검증
-- [ ] ztunnel 공유 자원 귀속
-- [ ] replica/node 확장 반복 측정
-- [ ] 기능 범위 차이 기록
-- [ ] Phase 6 Evidence measured
+- [x] enrollment/HBONE/ztunnel 경로 검증
+- [x] ztunnel 공유 자원 귀속 (노드 단위 절대값, per-request 정규화 안 함 — ADR-0025)
+- [x] 고정 replica(1개)에서 paired core 조건 10~15회 (nominal 10회/near-saturation 14회 `STOP_PRECISION_REACHED`, high 15회 `INCONCLUSIVE_MAX_RUNS`)
+- [ ] **replica/node 확장에 따른 공유 비용 측정 — 미완료, Phase 8 전에 별도로 수행 필요** (가설 1의 핵심 근거)
+- [x] 기본 Ambient 기능 범위(L7 없음)를 Sidecar와 구분 기록
+- [x] Phase 6 Evidence measured (고정 replica baseline 한정 — 확장 측정은 별도)
 
 ## Phase 7 — Waypoint
 
