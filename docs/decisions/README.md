@@ -18,6 +18,7 @@
 | [ADR-0023](0023-hybrid-absolute-relative-precision-gate.md) | accepted | 정밀도 정지 기준에 절대값(ms) 기준 추가 |
 | [ADR-0024](0024-istio-sidecar-install.md) | accepted | Istio 1.30.3 Helm 설치와 클러스터 맞춤 자원 크기 |
 | [ADR-0025](0025-ambient-mesh-install.md) | accepted | ztunnel 설치와 노드 단위 공유 자원 귀속 모델 |
+| [ADR-0026](0026-waypoint-deployment-scope.md) | accepted | Waypoint 선택 경로(단일 hop) 우선 배치와 자원 모델 |
 
 과거 항공 및 SRE 제품 서비스 경계 ADR은 현재 구조에 적용하지 않는다.
 
