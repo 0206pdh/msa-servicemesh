@@ -88,12 +88,14 @@
       No-Mesh 대비 ~1-2%만 증가. p95/p99 latency는 27개 비교 중 단 1건(high 조건 No-Mesh vs Ambient)만
       유의했고 다음 부하 단계에서 재현되지 않음 — 확정 결론 아님. app 자체 CPU-per-request는 9개 비교
       전부 유의한 차이 없음 (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`)
-- [x] 시간축 metric/trace/resource 상관 분석 — **재구성 불가로 확정, 착수 아님**: Prometheus/Tempo/Loki
-      전체가 `retention: 24h`/`retentionSize: 2GB`로 명시 설정되어 있어 Phase 4~7 run(2026-07-23~29) 시점의
-      텔레메트리가 이미 만료됐고, 설령 남아있었어도 Runner가 run마다 저장하는 `prometheus-window.json`은
-      구간 전체의 집계 스칼라값(`increase()`/`max_over_time()`)일 뿐 실제 시계열(`query_range`)이 아니라서
-      애초에 세부 시점 상관 분석이 불가능했다. 조작/재구성 없이 한계로 기록하고 종료 (comparison Evidence
-      문서의 "Time-axis correlation — attempted, found infeasible retroactively" 절)
+- [x] 시간축 metric/trace/resource 상관 분석 — **metric/trace는 재구성 불가, 로그는 남아있으나 내용 없음으로
+      확정**: Prometheus(자체 TSDB retention)와 Tempo(살아있는 compactor)는 24h retention이 실제로
+      강제되어 Phase 4~7 run(2026-07-23~29) 시점 데이터가 진짜로 사라졌음을 직접 확인(Tempo는 실제 trace
+      ID 조회로 재검증). Loki는 `retention_period: 24h`가 설정만 있고 강제하는 compactor가 없어 그 시점
+      로그가 실제로는 남아있음을 확인했으나(최초 점검은 잘못된 라벨 이름으로 "없다"고 오판했었음), 가장
+      latency가 높았던 run 구간을 직접 열어보니 WARN/ERROR 0건·전체 로그 2줄뿐이라 상관 분석에 쓸 내용이
+      없었다(애플리케이션이 요청 단위 로그를 남기지 않음). 조작 없이 이 정확한 한계로 기록하고 종료
+      (comparison Evidence 문서의 "Time-axis correlation" 절)
 - [x] 지지/반대 Evidence가 있는 병목 주장 — 위 비교 결과의 "Reading the two clean signals" 절 참고
 - [x] 최소 3개 개선 가설 승인 — comparison Evidence 문서의 "Candidate bottleneck hypotheses" 절 (Sidecar
       mTLS/HTTP framing 오버헤드, ztunnel 공유 프록시의 미확정 latency 저하, mesh 비용이 proxy/network

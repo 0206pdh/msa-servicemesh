@@ -96,31 +96,52 @@ ztunnel CPU-seconds) rather than any spillover into the application process itse
    proxy configuration (mTLS cipher/handshake reuse, connection pooling) rather than application-level
    tuning, since the application itself shows no measurable mesh-induced cost.
 
-## Time-axis correlation — attempted, found infeasible retroactively
+## Time-axis correlation — partially feasible; metrics/traces gone, logs survive but are uninformative
 
 The remaining Phase 8 checklist item ("시간축 metric/trace/resource 상관 분석") called for correlating
-metric/trace/resource timelines against the latency/network findings above. Attempting this surfaced two
-independent reasons it cannot be done retroactively for the Phase 4-7 canonical runs (2026-07-23 to 2026-07-29):
+metric/trace/resource timelines against the latency/network findings above. The first pass at this concluded
+"infeasible, the whole stack has 24h retention" — that conclusion was **wrong for Loki** and was corrected
+after direct re-verification. The accurate, per-component picture:
 
-1. **The observability stack's own retention is 24h by design**, not the 15-day default assumed: `kubectl get
-   prometheus -o jsonpath='{.spec.retention}'` returns `24h` / `retentionSize: 2GB`, and Loki/Tempo carry the
-   same `retention_period: 24h` / `block_retention: 24h`. Direct queries confirm data older than ~24-48h no
-   longer exists (`up{namespace="benchmark"}` at 48h/72h/120h/168h-ago timestamps all return zero series,
-   while 1h/6h/12h/24h-ago all return data). This was an intentional resource-conservation choice for the
-   3-VM cluster (`docs/decisions/0011-delivery-and-observability-baseline.md`) but its exact `24h` value was
-   not previously written down anywhere in the project's own limits notes.
-2. **Even within the retention window, the Runner never captured genuine time-series per run.** Every run's
-   `raw/prometheus-window.json` — the only telemetry artifact the Runner persists per run — is a whole-window
-   scalar/vector snapshot (via `increase()`/`max_over_time()`-style instant queries over the full run
-   duration), not a `query_range` time series. So even a live Prometheus instance with unlimited retention
-   could not answer "did CPU spike specifically during the P99 latency spike sub-interval" for any
-   already-completed run; that resolution was never recorded in the first place.
+1. **Prometheus metrics are genuinely gone.** `kubectl get prometheus -o jsonpath='{.spec.retention}'` returns
+   `24h` / `retentionSize: 2GB`, and Prometheus enforces its own retention natively (no separate component
+   needed). Direct queries confirm it: `up{namespace="benchmark"}` at 1h/6h/12h/24h-ago timestamps all return
+   data, but 48h/72h/120h/168h-ago all return zero series. This was an intentional resource-conservation
+   choice for the 3-VM cluster (`docs/decisions/0011-delivery-and-observability-baseline.md`), though its
+   exact `24h` value had not previously been written down in the project's own limits notes.
+2. **Tempo traces are genuinely gone, confirmed against a real trace ID, not just a config read.** Tempo's
+   config sets `compactor.compaction.block_retention: 24h`, and — unlike Loki — its compactor is an active,
+   running component (`kubectl logs tempo-0` shows a compaction cycle firing every ~30s). Looking up the
+   Phase 4 nominal run's own recorded trace ID (`25f71692f230b38e4cc2acb679101cb7`, from
+   `results/phase4-chain-baseline-nominal/repeat-01/raw/tempo-trace-marker.json`) via `/api/traces/{id}`
+   returns `NotFound`, while the identical lookup path against a trace from the last hour succeeds — so this
+   is a real absence, not a wrong-endpoint false negative.
+3. **Loki logs are NOT actually gone — the first-pass conclusion was incorrect here.** Loki's config sets
+   `limits_config.retention_period: 24h`, but that value is only enforced by a separate compactor target with
+   `retention_enabled`/`delete_request_store` configured, and this deployment's `loki` ConfigMap has neither.
+   Directly querying Loki for the Phase 4 run window (2026-07-23) with the correct label
+   (`{k8s_namespace_name="benchmark"}` — the first query attempt wrongly used a plain `namespace` label,
+   which doesn't exist here, and silently returned zero results) finds real log streams from that exact
+   window, including the `meshperf-log-marker-phase4-chain-baseline-nominal` marker pod. **Logs going back to
+   the start of the project are still queryable.**
+4. **Having confirmed logs survive, they were checked for actual diagnostic content — and found unhelpful for
+   this analysis.** Querying Loki for the single highest-p99 Ambient `high`-condition repeat
+   (`phase6-ambient-baseline-high/repeat-04`, 2026-07-27T12:28:44–12:48:35Z, p99 63.9ms) found zero WARN/ERROR
+   lines from any SYNC_CHAIN service, and only 2 total log lines in the entire 20-minute window across the
+   whole `benchmark` namespace (both from `kafka-0`, unrelated to the chain). The application services simply
+   don't emit per-request or diagnostic log lines during formal runs — only lifecycle/error events, and this
+   run had none. So while the data source exists, it doesn't contain the resolution needed to explain *why*
+   that run's tail latency was elevated.
 
-**Decision:** this checklist item is closed as infeasible-retroactively rather than left open indefinitely.
-No fabricated or reconstructed correlation is reported. Going forward, any Phase 9 experiment that needs true
-time-axis correlation must either analyze telemetry within the 24h window right after the run, or the Runner
-would need a `query_range` capture added to `kubernetes.py`'s window snapshot step — noted as a backlog item
-for Phase 9 experiment design, not implemented speculatively here.
+**Decision:** metric/trace-based correlation is confirmed infeasible retroactively (data genuinely deleted by
+enforced retention). Log-based correlation is technically possible but was checked and found to carry no
+useful signal for the questions this phase is asking, because the Runner's application logging is
+lifecycle/error-only, not per-request. This checklist item is closed on that more precise basis rather than
+the original blanket "everything expired" claim. Going forward, any Phase 9 experiment that needs true
+metric/trace time-axis correlation must analyze telemetry within the 24h window right after the run (or the
+Runner would need a `query_range` capture added to `kubernetes.py`'s window snapshot step, noted as a backlog
+item, not implemented speculatively here); if per-request log correlation is ever needed, the application's
+own logging would need to be made more verbose first, since today's log volume is too sparse to use.
 
 ## Limits recorded for downstream (Phase 9+) use
 

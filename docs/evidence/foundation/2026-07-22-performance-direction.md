@@ -20,7 +20,7 @@
 - Markdown 로컬 링크 검사 통과
 - Redocly OpenAPI lint 통과
 - 이벤트 및 실험 결과 JSON Schema 구문 검사 통과
-- 런타임 코드의 항공권/SRE 도메인 잔재 검사 통과
+- 런타임 코드의 이전 방향 도메인 잔재 검사 통과
 - Web production build 통과
 - Java 25 기반 5개 서비스 Gradle test 통과
 - Java 서비스 5개와 Web 이미지 build 통과
