@@ -27,7 +27,7 @@ def measurement_duration(target_rps: int) -> int:
 
 def formal_spec(
     condition: str, target_rps: int, run_id_prefix: str = "phase4-chain-baseline",
-    profile: str = "NO_MESH",
+    profile: str = "NO_MESH", extra_spec_fields: dict | None = None,
 ) -> dict:
     spec = discovery_spec(f"{run_id_prefix}-{condition}", target_rps, profile=profile)
     spec["seed"] = 42
@@ -39,11 +39,18 @@ def formal_spec(
         "preAllocatedVUs": 128,
         "repetitions": 1,
     })
+    if extra_spec_fields:
+        # Deliberately affects the config fingerprint (canonical(spec) hashes
+        # the whole dict) so a variant like Phase 9's mTLS-disabled Sidecar
+        # experiment gets a distinct fingerprint from the canonical Sidecar
+        # baseline it's compared against, without adding a new PROFILES enum
+        # value or changing default (no-extra) callers' fingerprints at all.
+        spec.update(extra_spec_fields)
     return spec
 
 
-def block_order(block: int, seed: int = 42) -> list[str]:
-    names = list(CONDITIONS)
+def block_order(block: int, seed: int = 42, names: list[str] | None = None) -> list[str]:
+    names = list(names) if names is not None else list(CONDITIONS)
     random.Random(seed + block).shuffle(names)
     return names
 
@@ -52,12 +59,15 @@ class BaselineMeasurement:
     def __init__(
         self, root: Path, state_path: Path, cooldown_seconds: int = 120,
         run_id_prefix: str = "phase4-chain-baseline", profile: str = "NO_MESH",
+        conditions: dict[str, int] | None = None, extra_spec_fields: dict | None = None,
     ):
         self.root = root
         self.state_path = state_path
         self.cooldown_seconds = cooldown_seconds
         self.run_id_prefix = run_id_prefix
         self.profile = profile
+        self.conditions = dict(conditions) if conditions is not None else dict(CONDITIONS)
+        self.extra_spec_fields = extra_spec_fields
         self.state = self._load()
 
     def _load(self) -> dict:
@@ -68,7 +78,7 @@ class BaselineMeasurement:
             "variant": "hop-3-payload-1KiB-delay-1ms",
             "profile": self.profile,
             "seed": 42,
-            "conditions": CONDITIONS,
+            "conditions": self.conditions,
             "sessions": [],
             "status": "READY",
         }
@@ -94,8 +104,9 @@ class BaselineMeasurement:
 
     def _formal_spec(self, condition: str) -> dict:
         return formal_spec(
-            condition, CONDITIONS[condition],
+            condition, self.conditions[condition],
             run_id_prefix=self.run_id_prefix, profile=self.profile,
+            extra_spec_fields=self.extra_spec_fields,
         )
 
     def _decision(self, condition: str) -> dict:
@@ -128,14 +139,14 @@ class BaselineMeasurement:
         )
         if session_state is None:
             baseline = {
-                condition: self._decision(condition)["validRuns"] for condition in CONDITIONS
+                condition: self._decision(condition)["validRuns"] for condition in self.conditions
             }
             session_state = {
                 "session": session, "blocks": [], "status": "RUNNING", "baseline": baseline,
             }
             self.state["sessions"].append(session_state)
         baseline = session_state.setdefault(
-            "baseline", {condition: 0 for condition in CONDITIONS}
+            "baseline", {condition: 0 for condition in self.conditions}
         )
         completed_blocks = {
             item["block"] for item in session_state["blocks"] if item.get("status") == "COMPLETED"
@@ -147,7 +158,7 @@ class BaselineMeasurement:
             if block in completed_blocks:
                 continue
             global_block = (session - 1) * 5 + block
-            order = block_order(global_block, self.state["seed"])
+            order = block_order(global_block, self.state["seed"], list(self.conditions))
             block_state = next(
                 (item for item in reversed(session_state["blocks"])
                  if item["block"] == block and item.get("status") != "COMPLETED"),
@@ -170,7 +181,7 @@ class BaselineMeasurement:
                     for item in prior_block["runs"]
                     if item.get("condition") == condition and item.get("status") == "COMPLETED"
                 )
-                for condition in CONDITIONS
+                for condition in self.conditions
             }
             for condition in order:
                 decision = self._decision(condition)
@@ -183,7 +194,7 @@ class BaselineMeasurement:
                 repeat, run_dir, summary = recovered
                 block_state["runs"].append({
                     "condition": condition,
-                    "targetRps": CONDITIONS[condition],
+                    "targetRps": self.conditions[condition],
                     "repeat": repeat,
                     "runDir": str(run_dir.relative_to(self.root)),
                     "status": summary["status"],
@@ -222,7 +233,7 @@ class BaselineMeasurement:
                     status = "FAILED"
                     block_state["runs"].append({
                         "condition": condition,
-                        "targetRps": CONDITIONS[condition],
+                        "targetRps": self.conditions[condition],
                         "repeat": repeat,
                         "runDir": str(run_dir.relative_to(self.root)),
                         "status": status,
@@ -237,7 +248,7 @@ class BaselineMeasurement:
                 after = self._decision(condition)
                 block_state["runs"].append({
                     "condition": condition,
-                    "targetRps": CONDITIONS[condition],
+                    "targetRps": self.conditions[condition],
                     "repeat": repeat,
                     "runDir": str(run_dir.relative_to(self.root)),
                     "status": status,
@@ -250,7 +261,7 @@ class BaselineMeasurement:
             block_state["status"] = "COMPLETED"
             self._write()
         session_state["status"] = "COMPLETED"
-        decisions = {name: self._decision(name) for name in CONDITIONS}
+        decisions = {name: self._decision(name) for name in self.conditions}
         self.state["decisions"] = decisions
         self.state["status"] = (
             "COMPLETED"
@@ -272,10 +283,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cooldown-seconds", type=int, default=120)
     parser.add_argument("--run-id-prefix", default="phase4-chain-baseline")
     parser.add_argument("--profile", default="NO_MESH")
+    parser.add_argument(
+        "--conditions", default=None,
+        help="comma-separated name=rps pairs, e.g. 'nominal=8' to scope a session to one "
+             "condition (defaults to the full nominal/high/near-saturation set)",
+    )
+    parser.add_argument(
+        "--mesh-variant", default=None,
+        help="optional label merged into the spec as meshVariant, distinguishing this "
+             "run's config fingerprint from the canonical baseline of the same profile "
+             "(e.g. Phase 9's mtls-disabled Sidecar experiment)",
+    )
     args = parser.parse_args(argv)
+    conditions = None
+    if args.conditions:
+        conditions = {}
+        for pair in args.conditions.split(","):
+            name, rps = pair.split("=")
+            conditions[name.strip()] = int(rps)
+    extra_spec_fields = {"meshVariant": args.mesh_variant} if args.mesh_variant else None
     result = BaselineMeasurement(
         args.root.resolve(), args.state.resolve(), args.cooldown_seconds,
         run_id_prefix=args.run_id_prefix, profile=args.profile,
+        conditions=conditions, extra_spec_fields=extra_spec_fields,
     ).execute_session(args.session, args.blocks)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

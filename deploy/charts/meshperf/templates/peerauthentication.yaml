@@ -1,0 +1,10 @@
+{{- if .Values.sidecar.mtlsMode }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: meshperf-mtls-mode
+  namespace: {{ .Release.Namespace }}
+spec:
+  mtls:
+    mode: {{ .Values.sidecar.mtlsMode }}
+{{- end }}

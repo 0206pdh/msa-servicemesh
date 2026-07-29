@@ -89,6 +89,36 @@ class BaselineMeasurementTests(unittest.TestCase):
         self.assertEqual(spec["loadProfile"]["minimumRequests"], 20_000)
         self.assertEqual(spec["loadProfile"]["preAllocatedVUs"], 128)
 
+    def test_formal_spec_extra_fields_change_fingerprint_but_default_call_is_unaffected(self):
+        base = formal_spec("nominal", 8, run_id_prefix="phase5-sidecar-baseline", profile="SIDECAR")
+        variant = formal_spec(
+            "nominal", 8, run_id_prefix="phase9-sidecar-mtls-disabled", profile="SIDECAR",
+            extra_spec_fields={"meshVariant": "mtls-disabled"},
+        )
+        base_fingerprint = hashlib.sha256(canonical(base).encode()).hexdigest()
+        variant_fingerprint = hashlib.sha256(canonical(variant).encode()).hexdigest()
+        self.assertNotEqual(base_fingerprint, variant_fingerprint)
+        self.assertEqual(variant["profile"], "SIDECAR")
+        self.assertEqual(variant["meshVariant"], "mtls-disabled")
+        # Regression guard: the pinned no-mesh fingerprint test above must still pass
+        # unchanged since extra_spec_fields defaults to None.
+
+    def test_baseline_measurement_can_scope_to_a_single_condition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            measurement = BaselineMeasurement(
+                root, root / "results" / "phase9-sidecar-mtls-disabled" / "state.json", 0,
+                run_id_prefix="phase9-sidecar-mtls-disabled", profile="SIDECAR",
+                conditions={"nominal": 8}, extra_spec_fields={"meshVariant": "mtls-disabled"},
+            )
+            with patch("experiments.baseline.Runner", _FakeRunner):
+                state = measurement.execute_session(session=1, blocks=1)
+            block = state["sessions"][0]["blocks"][0]
+            conditions_seen = {run["condition"] for run in block["runs"]}
+            self.assertEqual(conditions_seen, {"nominal"})
+            run_dir = root / "results" / "phase9-sidecar-mtls-disabled-nominal" / "repeat-01"
+            self.assertTrue(run_dir.exists())
+
     def test_block_order_is_seeded_and_complete(self):
         first = block_order(1)
         self.assertEqual(first, block_order(1))

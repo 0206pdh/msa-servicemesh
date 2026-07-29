@@ -7,6 +7,11 @@ sidecar:
   enabled: false
   istioNamespace: istio-system
   xdsPort: 15012
+  # Empty (default) creates no PeerAuthentication resource, leaving mesh-wide
+  # mTLS at Istio's own default (PERMISSIVE). Set to "DISABLE" for Phase 9's
+  # ADR-0028 mTLS-overhead experiment; any other non-empty value is passed
+  # through verbatim as spec.mtls.mode.
+  mtlsMode: ""
 
 ambient:
   enabled: false
