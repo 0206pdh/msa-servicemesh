@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 7 — Waypoint 배포 중 원인 불명 연결 실패로 blocked. Phase 8은 3개 profile로 진행 예정
-- Infrastructure Step: 클러스터는 순수 Ambient 상태로 복구됨 (Waypoint Gateway 제거)
-- Status: phase-7-blocked-phase-6-scaling-study-pending
+- Overall Phase: Phase 7 — Waypoint blocked. Replica-scaling 방향성 연구 완료. Phase 8 착수 준비 완료
+- Infrastructure Step: 클러스터는 순수 Ambient 상태(orchestrator-service 1 replica)로 복구됨
+- Status: phase-8-ready-waypoint-retry-pending
 - Last updated: 2026-07-29
 
 ## 완료된 기준점
@@ -82,12 +82,18 @@
 - [x] gateway→waypoint 홉 NetworkPolicy 수정(HBONE 15008)과 정상 동작 확인
 - [ ] **waypoint→실제 backend pod 홉이 원인 불명으로 항상 실패 — Phase 7 blocked** (`phase-07-p1-waypoint-blocked` 참고, 같은 노드 가설은 patch로 재현·기각함)
 - [x] 클러스터를 순수 Ambient 상태로 복구 (Waypoint 리소스 제거, SYNC_CHAIN 정상 동작 재확인)
+- [x] Replica 확장 방향성 연구 완료 (ADR-0027): orchestrator-service 1/2/4 replica × Sidecar/Ambient × 3회 = 18 run, 전부 성공
+- [x] 발견: Sidecar 메모리는 replica 수에 선형 비례(120→173MiB), Ambient/ztunnel 메모리는 거의 불변(15.8→16.1MiB) — 가설 1 방향과 일치
+- [x] 발견: Ambient latency가 replica 증가에 따라 뚜렷이 악화(p99 51→99.5ms, 방향성 데이터). Sidecar는 오히려 소폭 개선(부하분산 효과로 추정)
 
 ## 다음 작업
 
-1. **Phase 6 잔여**: Pod/worker replica와 노드 수 증가에 따른 ztunnel 공유 비용 확장 특성을 측정한다 (가설 1의 핵심 근거, 아직 미착수). Phase 8 병목 분석 전에 반드시 완료해야 한다.
-2. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile 데이터로 진행한다(Waypoint는 blocked 상태로 제외).
-3. Waypoint는 `istioctl` 등 추가 진단 도구가 갖춰지면 재시도한다 (Phase 7 재개 조건).
+1. Istio 버전을 바꿔(1.29.x 계열 시도) Waypoint를 재설치하고 같은 진단 절차로 재시도한다 (사용자 요청,
+   Phase 7 재개 시도). 실패해도 여러 버전에서 재현되는 근본 비호환으로 최종 확정하고 넘어간다.
+2. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile의 정식 데이터 + replica-scaling 방향성
+   데이터로 진행한다(Waypoint는 재시도 결과에 따라 포함 여부 결정).
+3. Phase 8에서 profile 간 정식 통계 비교 도구(paired difference, 결합 불확실성)를 구현한다 — 지금까지
+   Evidence 문서들의 "예비 비교"를 정식 결론으로 승격하려면 이 도구가 필요하다.
 
 ## 현재 한계
 
@@ -151,7 +157,10 @@
 - Waypoint 심화 진단: `istioctl` 설치 후 xDS 설정 확인(정상), Waypoint 내부→실제 backend 평문 curl 성공(네트워킹 정상), `cilium-dbg endpoint list`에 Waypoint IP 미노출(원인 불명)
 - Waypoint 거짓 양성 발견: 클린 재배포 직후 5연속 성공했으나 Waypoint 자체 rq_total은 무변화 → 20연속 재시도 시 0/20 성공. 최초 성공은 연결 풀 재사용에 의한 우회로 판정
 - 클러스터 복구: Waypoint 라우팅 완전 제거 후 SYNC_CHAIN HTTP 200/3-hop 완료 재확인
-- Git: ADR-0026 `af0d10c`, Phase 7 blocked 체크포인트 커밋 예정
+- Git: ADR-0026 `af0d10c`, Phase 7 blocked 체크포인트 `58736f1`
+- Replica-scaling: ADR-0027, `experiments/replica_scaling.py`, 18/18 run `COMPLETED` (Sidecar/Ambient × 1/2/4 replica × 3회)
+- Python 전체 unittest: 27 passed
+- Git: ADR-0027 `30abbef`/`6f90e72`, replica_scaling.py `b702871`, replica-scaling Evidence 커밋 예정
 
 ## 재개 절차
 

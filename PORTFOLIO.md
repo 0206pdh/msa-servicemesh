@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 6 (Istio Ambient baseline) 고정 replica 측정 완료, replica/node 확장 측정 잔여 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked, replica-scaling 방향성 연구 완료 — Phase 8 착수 준비 · **시작일**: 2026-07-22
 
 ---
 
@@ -417,6 +417,38 @@ Cilium의 코어 데이터플레인 동작과 관련될 가능성이 짙어졌�
 
 상세 진단 기록: [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
 
+### 6.6 Replica 확장 방향성 연구 — 완료 (2026-07-29)
+
+Phase 6 문서와 가설 1이 요구하는 "Pod replica 수가 늘 때 Sidecar와 Ambient의 비용이 다르게 확장되는가"를
+확인하기 위한 별도 연구다. 정식 10~15회 반복이 아니라 **방향성 확인용으로 범위를 축소**했다(ADR-0027):
+`orchestrator-service`만 1/2/4 replica로 늘리고, nominal(8 RPS) 부하 하나에서, Sidecar와 Ambient 각각
+지점당 3회씩 총 18회 측정했다(전부 성공, 오류 0건).
+
+| Profile | Replica | p95 median | p99 median | Proxy 메모리 peak |
+|---|---:|---:|---:|---:|
+| Sidecar | 1 | 42.92 ms | 67.73 ms | 120.1 MiB |
+| Sidecar | 2 | 40.22 ms | 51.94 ms | 138.3 MiB |
+| Sidecar | 4 | 36.95 ms | 58.06 ms | 173.0 MiB |
+| Ambient | 1 | 34.34 ms | 51.01 ms | 15.8 MiB |
+| Ambient | 2 | 44.31 ms | 67.93 ms | 15.9 MiB |
+| Ambient | 4 | 68.42 ms | 99.52 ms | 16.1 MiB |
+
+**메모리는 가설 1을 깔끔하게 확인해준다.** Sidecar는 replica가 1→4개로 늘 때 메모리가 120→173MiB로
+**44% 증가**한다 — replica마다 자기 몫의 Envoy 프로세스를 새로 띄우니 당연한 결과다. 반면 Ambient의
+ztunnel 메모리는 15.8→16.1MiB로 **거의 그대로**다 — ztunnel이 진짜로 "노드당 1개, 앱 Pod 수와 무관"이라는
+설계 그대로 동작한다는 직접적인 증거다.
+
+**그런데 latency는 예상 밖의 방향으로 갈렸다.** Sidecar는 replica가 늘수록 p95가 오히려 소폭 개선됐다
+(42.9→37.0ms) — 부하가 더 많은 인스턴스로 분산되며 개별 인스턴스의 대기 시간이 줄어든 것으로 보인다.
+반대로 **Ambient는 replica가 늘수록 latency가 뚜렷하게 나빠졌다** — p99가 51.0ms→99.5ms로 거의 2배가
+됐다. ztunnel 자체의 CPU 총량도 10.26→13.53 core-초로 32% 늘었는데, ztunnel은 트래픽이 아니라 "이
+노드에 새로 등록된 워크로드 수"(mTLS 인증서 발급/추적)에 비례해 비용이 붙는다는 뜻으로 해석된다 — "노드
+공유"라고 해서 Pod를 아무리 늘려도 공짜는 아니라는 걸 보여준 사례다. 다만 이 latency 결과는 지점당 3회
+반복(신뢰구간 없음)에 기반한 **방향성 데이터**이며, 세 replica 지점에서 일관되게 같은 방향으로 나타났다는
+점에서 Phase 9 개선 실험 후보로 등록할 만큼은 신빙성 있지만, Phase 4~6 수준의 확정된 결론은 아니다.
+
+전체 Evidence: [2026-07-29 replica-scaling directional study](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -566,10 +598,14 @@ Cilium의 코어 데이터플레인 동작과 관련될 가능성이 짙어졌�
 | 반복측정 정책 | [ADR-0014](docs/decisions/0014-measurement-repetition-and-load-policy.md), [ADR-0023](docs/decisions/0023-hybrid-absolute-relative-precision-gate.md) |
 | Istio Sidecar 설치 결정 | [ADR-0024](docs/decisions/0024-istio-sidecar-install.md) |
 | Istio Ambient 설치 결정 | [ADR-0025](docs/decisions/0025-ambient-mesh-install.md) |
+| Waypoint 배포 범위 결정 | [ADR-0026](docs/decisions/0026-waypoint-deployment-scope.md) |
+| Replica 확장 연구 범위 결정 | [ADR-0027](docs/decisions/0027-replica-scaling-study-scope.md) |
 | Capacity Discovery Evidence | [docs/evidence/performance/2026-07-23-canonical-chain-capacity.md](docs/evidence/performance/2026-07-23-canonical-chain-capacity.md) |
 | No-Mesh Baseline 최종 Evidence | [docs/evidence/performance/2026-07-25-canonical-baseline-final.md](docs/evidence/performance/2026-07-25-canonical-baseline-final.md) |
 | Sidecar Baseline 최종 Evidence | [docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md) |
 | Ambient Baseline 최종 Evidence | [docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md) |
+| Waypoint blocked 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
+| Replica-scaling 방향성 연구 Evidence | [docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

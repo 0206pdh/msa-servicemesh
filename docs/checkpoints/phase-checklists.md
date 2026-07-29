@@ -65,7 +65,7 @@
 - [x] enrollment/HBONE/ztunnel 경로 검증
 - [x] ztunnel 공유 자원 귀속 (노드 단위 절대값, per-request 정규화 안 함 — ADR-0025)
 - [x] 고정 replica(1개)에서 paired core 조건 10~15회 (nominal 10회/near-saturation 14회 `STOP_PRECISION_REACHED`, high 15회 `INCONCLUSIVE_MAX_RUNS`)
-- [ ] **replica/node 확장에 따른 공유 비용 측정 — 미완료, Phase 8 전에 별도로 수행 필요** (가설 1의 핵심 근거)
+- [x] replica 확장에 따른 공유 비용 측정 — 방향성 확인 연구 완료 (ADR-0027, 정식 통계 아님). Sidecar 메모리는 replica 수에 선형 비례(120→173MiB), Ambient/ztunnel 메모리는 거의 불변(15.8→16.1MiB) — 가설 1 방향과 일치. Ambient latency는 replica 증가 시 뚜렷이 악화(p99 51→99.5ms, 3회 반복 기준 방향성)
 - [x] 기본 Ambient 기능 범위(L7 없음)를 Sidecar와 구분 기록
 - [x] Phase 6 Evidence measured (고정 replica baseline 한정 — 확장 측정은 별도)
 
