@@ -5,9 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 8 — profile 간 정식 통계 비교(No-Mesh/Sidecar/Ambient) 완료. 시간축 상관 분석 잔여
+- Overall Phase: Phase 8 완료 — profile 간 정식 통계 비교 완료, 시간축 상관 분석은 재구성 불가로 한계 기록.
+  Phase 9(개선 실험) 착수 준비
 - Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 1 replica)로 복구됨
-- Status: phase-8-comparison-done-correlation-pending
+- Status: phase-8-done-phase-9-ready
 - Last updated: 2026-07-30
 
 ## 완료된 기준점
@@ -96,14 +97,20 @@
       1건(high 조건, No-Mesh vs Ambient)만 유의했고 다음 부하 단계(near-saturation)에서 방향이 뒤집혀
       재현되지 않음 — 확정 결론으로 보지 않음. app 자체 CPU-per-request는 9개 비교 전부 유의한 차이 없음
       (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`)
+- [x] 시간축 metric/trace/resource 상관 분석 시도 → **재구성 불가로 확정**: 관측 스택 전체가
+      `retention: 24h`/`retentionSize: 2GB`로 설정되어 있어 Phase 4~7 시점 텔레메트리가 이미 만료됐고,
+      Runner가 저장하는 `prometheus-window.json`도 애초에 구간 집계 스칼라값일 뿐 시계열이 아니라서
+      재구성 자체가 불가능함을 확인. 조작 없이 한계로 기록하고 Phase 8 Evidence 종료
+- [x] Phase 8 Evidence validated (통계 비교 완료 + 시간축 분석 한계 기록)
 
 ## 다음 작업
 
-1. 시간축 metric/trace/resource 상관 분석(Phase 8 잔여 항목) — Prometheus/Tempo 타임라인을 이용해
-   network-bytes 증가와 latency 이상치 시점의 실제 원인을 더 파본다.
-2. Phase 9(개선 실험) 준비: comparison Evidence의 "Candidate bottleneck hypotheses" 3건(Sidecar mTLS/HTTP
+1. Phase 9(개선 실험) 준비: comparison Evidence의 "Candidate bottleneck hypotheses" 3건(Sidecar mTLS/HTTP
    framing 오버헤드, ztunnel 공유 프록시 latency 저하 미확정 가설, mesh 비용이 proxy/network 계층에
    국한된다는 부정 결과)을 검증할 단일 변수 실험을 설계한다.
+2. Phase 9 실험을 설계할 때는 Runner의 `window_snapshot()`에 `query_range` 기반 시계열 캡처를 추가하는
+   것을 검토한다 — 그래야 향후 실험에서는 이번에 겪은 "시간축 상관 분석 불가" 한계가 재발하지 않는다
+   (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`의 backlog 메모 참고).
 
 ## 현재 한계
 
@@ -115,6 +122,7 @@
 - Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint)도 같은 제약을 받을 것으로 예상한다.
 - **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
 - kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
+- **관측 스택(Prometheus/Tempo/Loki) retention이 24h로 설정되어 있다**(`retention: 24h`, `retentionSize: 2GB`). Phase 4~7 run들의 원본 텔레메트리는 이미 만료돼 다시 조회할 수 없으며, Runner가 저장하는 `raw/prometheus-window.json`도 구간 전체 집계 스칼라값일 뿐 실제 시계열이 아니다. 향후 시간축 상관 분석이 필요한 실험은 run 종료 직후(24h 이내) 별도로 조회하거나, Runner에 `query_range` 캡처를 추가해야 한다.
 - **Phase 7(Waypoint)은 최종 blocked로 조사가 종료됐다** — orchestrator-service 단일 hop 구성에서 gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 같은 노드 배치 가설은 podAntiAffinity로 재현·기각했다. Istio 1.30.3→1.29.6 완전 재설치 후에도 동일하게 0/20 재현되어, 특정 버전의 버그가 아닌 이 클러스터의 Cilium 구성과 Ambient Waypoint 간 버전 독립적 근본 비호환으로 최종 판단했다. Phase 8은 Waypoint 없이 3개 profile로 진행한다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.

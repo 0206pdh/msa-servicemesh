@@ -96,6 +96,32 @@ ztunnel CPU-seconds) rather than any spillover into the application process itse
    proxy configuration (mTLS cipher/handshake reuse, connection pooling) rather than application-level
    tuning, since the application itself shows no measurable mesh-induced cost.
 
+## Time-axis correlation — attempted, found infeasible retroactively
+
+The remaining Phase 8 checklist item ("시간축 metric/trace/resource 상관 분석") called for correlating
+metric/trace/resource timelines against the latency/network findings above. Attempting this surfaced two
+independent reasons it cannot be done retroactively for the Phase 4-7 canonical runs (2026-07-23 to 2026-07-29):
+
+1. **The observability stack's own retention is 24h by design**, not the 15-day default assumed: `kubectl get
+   prometheus -o jsonpath='{.spec.retention}'` returns `24h` / `retentionSize: 2GB`, and Loki/Tempo carry the
+   same `retention_period: 24h` / `block_retention: 24h`. Direct queries confirm data older than ~24-48h no
+   longer exists (`up{namespace="benchmark"}` at 48h/72h/120h/168h-ago timestamps all return zero series,
+   while 1h/6h/12h/24h-ago all return data). This was an intentional resource-conservation choice for the
+   3-VM cluster (`docs/decisions/0011-delivery-and-observability-baseline.md`) but its exact `24h` value was
+   not previously written down anywhere in the project's own limits notes.
+2. **Even within the retention window, the Runner never captured genuine time-series per run.** Every run's
+   `raw/prometheus-window.json` — the only telemetry artifact the Runner persists per run — is a whole-window
+   scalar/vector snapshot (via `increase()`/`max_over_time()`-style instant queries over the full run
+   duration), not a `query_range` time series. So even a live Prometheus instance with unlimited retention
+   could not answer "did CPU spike specifically during the P99 latency spike sub-interval" for any
+   already-completed run; that resolution was never recorded in the first place.
+
+**Decision:** this checklist item is closed as infeasible-retroactively rather than left open indefinitely.
+No fabricated or reconstructed correlation is reported. Going forward, any Phase 9 experiment that needs true
+time-axis correlation must either analyze telemetry within the 24h window right after the run, or the Runner
+would need a `query_range` capture added to `kubernetes.py`'s window snapshot step — noted as a backlog item
+for Phase 9 experiment design, not implemented speculatively here.
+
 ## Limits recorded for downstream (Phase 9+) use
 
 - **"No confirmed difference" is not "no difference."** With 10-15 runs per profile and this cluster's own

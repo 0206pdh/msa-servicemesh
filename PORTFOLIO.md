@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료, Phase 8 profile 간 통계 비교 완료(시간축 상관 분석 잔여) · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료, Phase 8 완료(통계 비교 + 시간축 분석 한계 기록) — Phase 9 착수 준비 · **시작일**: 2026-07-22
 
 ---
 
@@ -208,7 +208,7 @@ Experiment Runner (Python)
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
 | 7 | Ambient + Waypoint 기준선 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
-| 8 | profile 비교와 병목 선정 | 🔄 통계 비교 완료(§6.7), 시간축 상관 분석 잔여 |
+| 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
 | 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
@@ -504,6 +504,15 @@ Phase 8 결과로부터 도출한 Phase 9 개선 가설 후보 3건: (1) Sidecar
 확인된 부정 결과 — 이는 Phase 9 개선 작업의 타겟을 애플리케이션이 아니라 프록시 설정(mTLS 핸드셰이크 재사용,
 connection pooling 등)으로 좁혀준다.
 
+Phase 8 체크리스트의 마지막 항목인 "시간축 metric/trace/resource 상관 분석"은 시도 과정에서 재구성이
+원천적으로 불가능하다는 걸 확인했다. 관측 스택(Prometheus/Tempo/Loki) 전체가 처음부터 `retention: 24h`
+(`retentionSize: 2GB`)로 설정돼 있어서 Phase 4~7 시점(2026-07-23~29)의 텔레메트리는 이미 만료됐고, 설령
+남아있었어도 Runner가 저장하는 `raw/prometheus-window.json`은 구간 전체를 하나의 숫자로 뭉친
+집계값(`increase()`/`max_over_time()`)일 뿐 실제 시계열이 아니어서 애초에 "이 시점에 CPU가 튀었는가"
+같은 질문에 답할 수 있는 데이터가 아니었다. 없는 데이터를 짜맞추는 대신 이 사실 자체를 한계로 정직하게
+기록하고 Phase 8을 마무리했다 — Phase 9 실험을 설계할 때는 Runner에 `query_range` 캡처를 추가해 같은
+문제가 반복되지 않게 할 계획이다.
+
 전체 Evidence: [2026-07-30 Phase 8 cross-profile comparison](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md)
 
 ---
@@ -599,8 +608,15 @@ connection pooling 등)으로 좁혀준다.
     시그니처(0/20, TCP 성공/HTTP 즉시 리셋)가 나온 것을 확인함으로써, "특정 릴리스의 버그"라는 약한
     가설을 "이 클러스터 스택 자체의 구조적 비호환"이라는 훨씬 강한 결론으로 승격시켰다 — 확인되지 않은
     가설로 결론을 내리기보다, 반증 실험을 한 번 더 돌려 결론의 근거를 넓힌 사례다.
+17. **"당연히 있을 거라 가정한 데이터"를 실제로 확인해보고 없다는 걸 인정함**: Phase 8 시간축 상관 분석을
+    시작하기 전에 "관측 스택을 이미 갖춰뒀으니 과거 run들의 타임라인도 당연히 조회할 수 있을 것"이라
+    가정하지 않고 실제로 과거 시점을 쿼리해봤다. 그 결과 Prometheus/Tempo/Loki가 애초에 24시간 retention
+    으로 설정돼 있어 데이터가 이미 없다는 것과, 설사 있었어도 Runner가 저장한 건 시계열이 아니라 구간
+    집계값뿐이었다는 것을 발견했다. 없는 데이터를 만들어내거나 분석을 억지로 진행하는 대신, 이 한계를
+    있는 그대로 기록하고 체크리스트 항목을 "재구성 불가로 확정"으로 정직하게 종료했다 — 이 프로젝트 전체를
+    관통하는 "Evidence 없는 결론 금지" 원칙을 자기 자신의 산출물 부재 앞에서도 그대로 적용한 사례다.
 
-`[TODO: Phase 8 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
+`[TODO: Phase 9 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
 ---
 
@@ -611,12 +627,11 @@ connection pooling 등)으로 좁혀준다.
 | 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
-| 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | 🔄 통계 비교 완료(§6.7), 시간축 상관 분석 잔여 |
+| 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
 | 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | Phase 8 완료 후 착수 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
-`[TODO: Phase 8 시간축 metric/trace/resource 상관 분석 결과]`
 `[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
 `[TODO: Phase 10 장애 주입 시나리오와 회복 지표]`
 `[TODO: Phase 11 워크로드별 최종 선택 Matrix]`
