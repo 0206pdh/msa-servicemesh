@@ -19,6 +19,7 @@
 | [ADR-0024](0024-istio-sidecar-install.md) | accepted | Istio 1.30.3 Helm 설치와 클러스터 맞춤 자원 크기 |
 | [ADR-0025](0025-ambient-mesh-install.md) | accepted | ztunnel 설치와 노드 단위 공유 자원 귀속 모델 |
 | [ADR-0026](0026-waypoint-deployment-scope.md) | accepted | Waypoint 선택 경로(단일 hop) 우선 배치와 자원 모델 |
+| [ADR-0027](0027-replica-scaling-study-scope.md) | accepted | Replica 확장 비용 연구를 방향성 확인 범위로 축소 |
 
 과거 항공 및 SRE 제품 서비스 경계 ADR은 현재 구조에 적용하지 않는다.
 
