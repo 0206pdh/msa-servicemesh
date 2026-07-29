@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked, replica-scaling 방향성 연구 완료 — Phase 8 착수 준비 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료 — Phase 8 착수 · **시작일**: 2026-07-22
 
 ---
 
@@ -207,8 +207,8 @@ Experiment Runner (Python)
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
-| 7 | Ambient + Waypoint 기준선 | 🚧 blocked (원인 불명 연결 실패) |
-| 8 | profile 비교와 병목 선정 | `[TODO]` |
+| 7 | Ambient + Waypoint 기준선 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
+| 8 | profile 비교와 병목 선정 | 🔄 진행 중 |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
 | 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
@@ -243,9 +243,10 @@ Experiment Runner (Python)
 - [x] Waypoint 배포 범위 결정 — 선택 경로(단일 hop) 우선 (ADR-0026)
 - [x] `istio-waypoint` GatewayClass 자동 생성과 Gateway 리소스로 Pod 자동 프로비저닝 확인
 - [x] gateway→waypoint 홉 NetworkPolicy 수정과 정상 동작 확인
-- [ ] **waypoint→실제 backend pod 홉 연결 — blocked, 원인 불명** (§6.5)
-- [ ] paired core 조건 반복측정 — 위 차단으로 미착수
-- [ ] Phase 7 Evidence — blocked
+- [x] Istio 1.29.6으로 완전 재설치 후 재시도 — 동일하게 0/20 재현, 버전 독립적 비호환으로 확정
+- [ ] **waypoint→실제 backend pod 홉 연결 — blocked 최종 확정** (§6.5)
+- [ ] paired core 조건 반복측정 — 위 차단으로 미착수, 조사 종료
+- [ ] Phase 7 Evidence — blocked (최종)
 
 ---
 
@@ -380,7 +381,7 @@ Cilium(kube-proxy-replacement + VXLAN)과 Istio Ambient 조합은 사전에 위�
 
 전체 Evidence: [2026-07-29 canonical ambient baseline final](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md)
 
-### 6.5 Phase 7 Waypoint — blocked, 원인 불명 (2026-07-29)
+### 6.5 Phase 7 Waypoint — blocked, 버전 독립적 비호환으로 최종 확정 (2026-07-29)
 
 Ambient 위에 orchestrator-service 단일 hop만 Waypoint를 경유하도록 배포했다. Istio 1.30.3은
 `PILOT_ENABLE_AMBIENT=true`가 켜지면 `istio-waypoint` GatewayClass를 자동 생성해두므로, 별도 설치 없이
@@ -406,14 +407,27 @@ endpoint list`에 Waypoint Pod의 IP가 아예 나타나지 않는 것도 발견
 성공은 Waypoint 설정 이전에 gateway 앱이 이미 맺어둔 연결 풀(keep-alive)이 우연히 재사용되며 Waypoint를
 완전히 우회한 거짓 양성이었다.
 
-**최종적으로 다시 멈추고 사용자에게 재보고했다.** `istioctl`까지 동원한 심화 진단에도 재현성이 극히
-불안정하고 근본 원인을 확정하지 못했다 — 이 클러스터의 특정 버전 조합(Cilium 1.19.6 + Istio ambient
-waypoint 1.30.3)에서 실제로 존재하는 버그이거나 깊은 호환성 문제로 판단된다. 지금까지 고친 두 건(probe
-캡처, NetworkPolicy 포트 누락)은 명확한 원인과 안전한 수정이 있었지만, 이번 건은 계속 판 결과에서도
-Cilium의 코어 데이터플레인 동작과 관련될 가능성이 짙어졌다. 사용자는 Waypoint 측정을 미해결 항목으로
-남기고 Phase 8(병목 분석)을 이미 확보한 No-Mesh/Sidecar/Ambient 세 profile 데이터로 진행하는 쪽을
-최종 선택했다. 클러스터는 Waypoint 라우팅을 완전히 제거하고 순수 Ambient 상태로 정상 복구했다
-(SYNC_CHAIN E2E 재확인 완료).
+`istioctl`까지 동원한 심화 진단에도 재현성이 극히 불안정하고 근본 원인을 확정하지 못했다 — 이 클러스터의
+특정 버전 조합(Cilium 1.19.6 + Istio ambient waypoint 1.30.3)에서 실제로 존재하는 버그이거나 깊은
+호환성 문제로 판단되는 시점에서, 사용자가 "그럼 Istio 버전을 바꿔서 재설치도 해보자"고 요청했다.
+
+**Istio 1.30.3을 완전히 제거하고 1.29.6으로 재설치해 처음부터 다시 시도했다.** ztunnel/istio-cni/istiod/
+istio-base를 전부 지우고 동일 자원 설정으로 재설치하면서 `PILOT_ENABLE_AMBIENT=true`도 처음부터 켰다.
+재설치 직후 **순수 Ambient SYNC_CHAIN 트래픽은 정상 동작**함을 먼저 확인한 뒤(HTTP 200, 3-hop, checksum
+일치), Waypoint Gateway와 NetworkPolicy 수정을 동일하게 재적용했다. Waypoint Pod는 `1/1 Running`으로
+정상 기동했지만, 첫 요청부터 **완전히 동일한 실패 시그니처**(`HTTP 500`, "upstream connect error...
+connection termination")가 재현됐다. 거짓 양성을 이미 한 번 겪은 뒤였으므로 단일 샘플을 믿지 않고 곧바로
+20회 배치 요청으로 재확인했고, 결과는 **`success=0 fail=20`** — 1.30.3에서 관측한 것과 정확히 같았다.
+
+**서로 다른 두 Istio minor 버전에서 완전 재설치 후에도 동일한 0/20 실패가 나온다는 것은, 특정 릴리스의
+회귀 버그가 아니라 이 클러스터의 Cilium 구성(kube-proxy-replacement + VXLAN tunnel 모드 — ADR-0025에서
+사전에 위험 조합으로 표시해둔 조합)과 Istio Ambient Waypoint 아키텍처 사이의 버전 독립적인 근본
+비호환이라는 뜻이다.** 이 결과로 조사를 최종 종료하기로 판단했다. 지금까지 고친 두 건(probe 캡처,
+NetworkPolicy 포트 누락)은 명확한 원인과 안전한 수정이 있었지만, waypoint→backend 홉 문제는 두 버전
+모두에서 재현되는 것으로 봐서 애플리케이션이나 설정의 문제가 아니라 이 인프라 스택 자체의 한계로 규정하는
+것이 더 정직한 결론이다. 클러스터는 Waypoint 라우팅을 완전히 제거하고 순수 Ambient 상태(Istio 1.29.6)로
+정상 복구했다(SYNC_CHAIN E2E 재확인 완료, HTTP 200 3/3). Phase 8(병목 분석)은 이미 확보한 No-Mesh/
+Sidecar/Ambient 세 profile 데이터로 진행한다.
 
 상세 진단 기록: [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
 
@@ -536,6 +550,12 @@ ztunnel 메모리는 15.8→16.1MiB로 **거의 그대로**다 — ztunnel이 �
     `proxy-config`로 실제 xDS 설정을 직접 열어보는 쪽을 택했다. 결과적으로 근본 원인 자체는 못 찾았지만,
     "설정은 정상인데 실제 동작이 다르다"는 걸 확인함으로써 문제의 성격(설정 실수가 아니라 버전 조합의
     깊은 호환성 문제)을 훨씬 정확하게 좁혔다.
+16. **"원인 불명"에서 멈추지 않고 반증 가능한 가설로 전환해 결론의 신뢰도를 높임**: 특정 Istio 1.30.3
+    버전의 버그일 가능성을 배제하지 못한 상태에서 조사를 접는 대신, 완전히 다른 minor 버전(1.29.6)으로
+    처음부터 재설치해 동일 조건에서 재현을 시도했다. 두 버전 모두 완전 재설치 후 정확히 같은 실패
+    시그니처(0/20, TCP 성공/HTTP 즉시 리셋)가 나온 것을 확인함으로써, "특정 릴리스의 버그"라는 약한
+    가설을 "이 클러스터 스택 자체의 구조적 비호환"이라는 훨씬 강한 결론으로 승격시켰다 — 확인되지 않은
+    가설로 결론을 내리기보다, 반증 실험을 한 번 더 돌려 결론의 근거를 넓힌 사례다.
 
 `[TODO: Phase 8 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 

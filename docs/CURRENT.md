@@ -5,9 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 7 — Waypoint blocked. Replica-scaling 방향성 연구 완료. Phase 8 착수 준비 완료
-- Infrastructure Step: 클러스터는 순수 Ambient 상태(orchestrator-service 1 replica)로 복구됨
-- Status: phase-8-ready-waypoint-retry-pending
+- Overall Phase: Phase 7 — Waypoint 최종 blocked 확정(버전 재설치로도 동일 재현). Replica-scaling 방향성
+  연구 완료. Phase 8 착수
+- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 1 replica)로 복구됨
+- Status: phase-8-in-progress
 - Last updated: 2026-07-29
 
 ## 완료된 기준점
@@ -85,15 +86,17 @@
 - [x] Replica 확장 방향성 연구 완료 (ADR-0027): orchestrator-service 1/2/4 replica × Sidecar/Ambient × 3회 = 18 run, 전부 성공
 - [x] 발견: Sidecar 메모리는 replica 수에 선형 비례(120→173MiB), Ambient/ztunnel 메모리는 거의 불변(15.8→16.1MiB) — 가설 1 방향과 일치
 - [x] 발견: Ambient latency가 replica 증가에 따라 뚜렷이 악화(p99 51→99.5ms, 방향성 데이터). Sidecar는 오히려 소폭 개선(부하분산 효과로 추정)
+- [x] Istio 1.30.3 → 1.29.6 완전 재설치 후 Waypoint 재시도: 순수 Ambient는 정상, Waypoint 경유는 동일하게
+      0/20 재현 → 버전 독립적 근본 비호환으로 최종 판단, Phase 7 조사 종료(`phase-07-p1-waypoint-blocked` 최종 갱신)
+- [x] 클러스터를 순수 Ambient 상태(Istio 1.29.6)로 재복구, SYNC_CHAIN 정상 동작(HTTP 200, 3/3) 재확인
 
 ## 다음 작업
 
-1. Istio 버전을 바꿔(1.29.x 계열 시도) Waypoint를 재설치하고 같은 진단 절차로 재시도한다 (사용자 요청,
-   Phase 7 재개 시도). 실패해도 여러 버전에서 재현되는 근본 비호환으로 최종 확정하고 넘어간다.
-2. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile의 정식 데이터 + replica-scaling 방향성
-   데이터로 진행한다(Waypoint는 재시도 결과에 따라 포함 여부 결정).
-3. Phase 8에서 profile 간 정식 통계 비교 도구(paired difference, 결합 불확실성)를 구현한다 — 지금까지
+1. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile의 정식 데이터 + replica-scaling 방향성
+   데이터로 진행한다(Waypoint는 최종 blocked로 제외).
+2. Phase 8에서 profile 간 정식 통계 비교 도구(paired difference, 결합 불확실성)를 구현한다 — 지금까지
    Evidence 문서들의 "예비 비교"를 정식 결론으로 승격하려면 이 도구가 필요하다.
+3. 시간축 metric/trace/resource 상관 분석과 병목 주장(지지/반대 Evidence 포함), 최소 3개 개선 가설 도출.
 
 ## 현재 한계
 
@@ -105,7 +108,7 @@
 - Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint)도 같은 제약을 받을 것으로 예상한다.
 - **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
 - kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
-- **Phase 7(Waypoint)은 blocked 상태다** — orchestrator-service 단일 hop 구성에서 gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 같은 노드 배치 가설은 podAntiAffinity로 재현·기각했다. `istioctl` 없이는 근본 원인을 더 파기 어려워 보류했다. Phase 8은 Waypoint 없이 3개 profile로 진행한다.
+- **Phase 7(Waypoint)은 최종 blocked로 조사가 종료됐다** — orchestrator-service 단일 hop 구성에서 gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 같은 노드 배치 가설은 podAntiAffinity로 재현·기각했다. Istio 1.30.3→1.29.6 완전 재설치 후에도 동일하게 0/20 재현되어, 특정 버전의 버그가 아닌 이 클러스터의 Cilium 구성과 Ambient Waypoint 간 버전 독립적 근본 비호환으로 최종 판단했다. Phase 8은 Waypoint 없이 3개 profile로 진행한다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -158,6 +161,9 @@
 - Waypoint 거짓 양성 발견: 클린 재배포 직후 5연속 성공했으나 Waypoint 자체 rq_total은 무변화 → 20연속 재시도 시 0/20 성공. 최초 성공은 연결 풀 재사용에 의한 우회로 판정
 - 클러스터 복구: Waypoint 라우팅 완전 제거 후 SYNC_CHAIN HTTP 200/3-hop 완료 재확인
 - Git: ADR-0026 `af0d10c`, Phase 7 blocked 체크포인트 `58736f1`
+- Waypoint 버전 재설치 재현(최종): Istio 1.29.6 완전 재설치, 순수 Ambient 정상 확인 후 Waypoint 재구성 →
+  20회 배치 재시도 `success=0 fail=20`, 1.30.3과 동일 실패 재현 → 버전 독립적 비호환으로 최종 판단
+- 최종 복구: Waypoint 라벨/Gateway 제거, `helm upgrade` 재적용, SYNC_CHAIN 3/3 HTTP 200 재확인 (Istio 1.29.6 기준)
 - Replica-scaling: ADR-0027, `experiments/replica_scaling.py`, 18/18 run `COMPLETED` (Sidecar/Ambient × 1/2/4 replica × 3회)
 - Python 전체 unittest: 27 passed
 - Git: ADR-0027 `30abbef`/`6f90e72`, replica_scaling.py `b702871`, replica-scaling Evidence 커밋 예정

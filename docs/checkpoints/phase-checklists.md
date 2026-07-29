@@ -72,11 +72,13 @@
 ## Phase 7 — Waypoint
 
 - [x] 선택 경로(단일 hop) 배포 범위 결정 (ADR-0026)
-- [ ] **Waypoint 통과 검증 — 차단됨**: gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이
-      항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 노드 분리로도 재현되어 원인 불명 (`phase-07-p1-waypoint-blocked` 참고)
+- [ ] **Waypoint 통과 검증 — 최종 blocked (확정)**: gateway→waypoint 홉은 성공하지만 waypoint→실제
+      backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 노드 분리로도 재현되어 원인 불명.
+      Istio 1.30.3 → 1.29.6 완전 재설치 후에도 동일하게 0/20 재현되어 특정 버전 버그가 아닌
+      Cilium+Ambient Waypoint 간 버전 독립적 비호환으로 최종 판단 (`phase-07-p1-waypoint-blocked` 참고)
 - [ ] replica/queue/saturation 측정 — 위 차단으로 미착수
 - [ ] 적용 범위별 비용 Evidence — 미착수
-- [ ] Phase 7 Evidence — **blocked**, Phase 8은 No-Mesh/Sidecar/Ambient 세 profile로 진행
+- [ ] Phase 7 Evidence — **blocked (최종 확정, 조사 종료)**, Phase 8은 No-Mesh/Sidecar/Ambient 세 profile로 진행
 
 ## Phase 8 — 병목 분석
 
