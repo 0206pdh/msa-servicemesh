@@ -100,7 +100,7 @@ def extract(summary: dict) -> dict[str, float | None]:
     return extracted
 
 
-def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | None = None) -> dict:
+def collect_valid_runs(condition_dir: Path, required_fingerprint: str | None = None) -> dict:
     summaries = []
     invalid = []
     fingerprints = set()
@@ -123,6 +123,18 @@ def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | Non
             invalid.append({"path": str(path), "factors": factors})
     if len(fingerprints - {None}) > 1:
         raise ValueError("condition contains multiple config fingerprints")
+    return {
+        "summaries": summaries,
+        "invalid": invalid,
+        "fingerprints": fingerprints,
+    }
+
+
+def analyze(condition_dir: Path, seed: int = 42, required_fingerprint: str | None = None) -> dict:
+    collected = collect_valid_runs(condition_dir, required_fingerprint)
+    summaries = collected["summaries"]
+    invalid = collected["invalid"]
+    fingerprints = collected["fingerprints"]
     extracted = [extract(summary) for summary in summaries]
     metrics = {}
     for index, name in enumerate(extracted[0].keys() if extracted else []):

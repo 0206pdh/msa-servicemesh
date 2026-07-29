@@ -82,11 +82,18 @@
 
 ## Phase 8 — 병목 분석
 
-- [ ] profile 분포와 절대/상대 차이 비교
-- [ ] 시간축 metric/trace/resource 상관 분석
-- [ ] 지지/반대 Evidence가 있는 병목 주장
-- [ ] 최소 3개 개선 가설 승인
-- [ ] Phase 8 Evidence validated
+- [x] profile 분포와 절대/상대 차이 비교 — No-Mesh/Sidecar/Ambient 3개 profile × 3개 부하 조건 × 6개 지표,
+      독립 2-표본 bootstrap 차이 검정(`experiments/compare_profiles.py`)으로 36개 비교 완료. 핵심 발견:
+      network bytes/request는 Sidecar가 세 부하 조건 모두에서 일관되게 ~49% 증가(고신뢰), Ambient는
+      No-Mesh 대비 ~1-2%만 증가. p95/p99 latency는 27개 비교 중 단 1건(high 조건 No-Mesh vs Ambient)만
+      유의했고 다음 부하 단계에서 재현되지 않음 — 확정 결론 아님. app 자체 CPU-per-request는 9개 비교
+      전부 유의한 차이 없음 (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`)
+- [ ] 시간축 metric/trace/resource 상관 분석 — 미착수
+- [x] 지지/반대 Evidence가 있는 병목 주장 — 위 비교 결과의 "Reading the two clean signals" 절 참고
+- [x] 최소 3개 개선 가설 승인 — comparison Evidence 문서의 "Candidate bottleneck hypotheses" 절 (Sidecar
+      mTLS/HTTP framing 오버헤드, ztunnel 공유 프록시의 미확정 latency 저하, mesh 비용이 proxy/network
+      계층에 국한되고 application 계층에는 없다는 부정 결과)
+- [ ] Phase 8 Evidence validated — 위 세 항목 완료, 시간축 상관 분석 잔여
 
 ## Phase 9 — 개선 실험
 

@@ -5,11 +5,10 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 7 — Waypoint 최종 blocked 확정(버전 재설치로도 동일 재현). Replica-scaling 방향성
-  연구 완료. Phase 8 착수
+- Overall Phase: Phase 8 — profile 간 정식 통계 비교(No-Mesh/Sidecar/Ambient) 완료. 시간축 상관 분석 잔여
 - Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 1 replica)로 복구됨
-- Status: phase-8-in-progress
-- Last updated: 2026-07-29
+- Status: phase-8-comparison-done-correlation-pending
+- Last updated: 2026-07-30
 
 ## 완료된 기준점
 
@@ -89,14 +88,22 @@
 - [x] Istio 1.30.3 → 1.29.6 완전 재설치 후 Waypoint 재시도: 순수 Ambient는 정상, Waypoint 경유는 동일하게
       0/20 재현 → 버전 독립적 근본 비호환으로 최종 판단, Phase 7 조사 종료(`phase-07-p1-waypoint-blocked` 최종 갱신)
 - [x] 클러스터를 순수 Ambient 상태(Istio 1.29.6)로 재복구, SYNC_CHAIN 정상 동작(HTTP 200, 3/3) 재확인
+- [x] `experiments/compare_profiles.py` 구현: 독립 2-표본 bootstrap 차이 검정(medium(B)-median(A), 95% CI).
+      `analysis.py`의 valid-run 필터링 로직을 `collect_valid_runs()`로 분리해 재사용(기존 24개 테스트 회귀 없음 확인)
+- [x] No-Mesh/Sidecar/Ambient 3개 profile × 3개 부하 조건(nominal/high/near-saturation) × 6개 지표 = 36개
+      비교 완료. 핵심 발견: network bytes/request는 Sidecar가 세 조건 모두에서 일관되게 ~49% 증가(고신뢰,
+      CI가 0에서 크게 벗어남), Ambient는 No-Mesh 대비 ~1-2%만 증가. p95/p99 latency는 27개 비교 중 단
+      1건(high 조건, No-Mesh vs Ambient)만 유의했고 다음 부하 단계(near-saturation)에서 방향이 뒤집혀
+      재현되지 않음 — 확정 결론으로 보지 않음. app 자체 CPU-per-request는 9개 비교 전부 유의한 차이 없음
+      (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`)
 
 ## 다음 작업
 
-1. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile의 정식 데이터 + replica-scaling 방향성
-   데이터로 진행한다(Waypoint는 최종 blocked로 제외).
-2. Phase 8에서 profile 간 정식 통계 비교 도구(paired difference, 결합 불확실성)를 구현한다 — 지금까지
-   Evidence 문서들의 "예비 비교"를 정식 결론으로 승격하려면 이 도구가 필요하다.
-3. 시간축 metric/trace/resource 상관 분석과 병목 주장(지지/반대 Evidence 포함), 최소 3개 개선 가설 도출.
+1. 시간축 metric/trace/resource 상관 분석(Phase 8 잔여 항목) — Prometheus/Tempo 타임라인을 이용해
+   network-bytes 증가와 latency 이상치 시점의 실제 원인을 더 파본다.
+2. Phase 9(개선 실험) 준비: comparison Evidence의 "Candidate bottleneck hypotheses" 3건(Sidecar mTLS/HTTP
+   framing 오버헤드, ztunnel 공유 프록시 latency 저하 미확정 가설, mesh 비용이 proxy/network 계층에
+   국한된다는 부정 결과)을 검증할 단일 변수 실험을 설계한다.
 
 ## 현재 한계
 
@@ -164,6 +171,10 @@
 - Waypoint 버전 재설치 재현(최종): Istio 1.29.6 완전 재설치, 순수 Ambient 정상 확인 후 Waypoint 재구성 →
   20회 배치 재시도 `success=0 fail=20`, 1.30.3과 동일 실패 재현 → 버전 독립적 비호환으로 최종 판단
 - 최종 복구: Waypoint 라벨/Gateway 제거, `helm upgrade` 재적용, SYNC_CHAIN 3/3 HTTP 200 재확인 (Istio 1.29.6 기준)
+- Python 전체 unittest: 31 passed (compare_profiles.py 신규 테스트 4개 포함)
+- Phase 8 비교 도구 실행: 36개 metric 비교 중 significant 13건 (network bytes/request 9건 전부 significant,
+  나머지는 latency 1건 · throughput 1건(미미) · memory 1건(원인 불명) · cpu-per-request 0건)
+- Git: analysis.py 리팩터링 + compare_profiles.py + Phase 8 Evidence 커밋 예정
 - Replica-scaling: ADR-0027, `experiments/replica_scaling.py`, 18/18 run `COMPLETED` (Sidecar/Ambient × 1/2/4 replica × 3회)
 - Python 전체 unittest: 27 passed
 - Git: ADR-0027 `30abbef`/`6f90e72`, replica_scaling.py `b702871`, replica-scaling Evidence 커밋 예정

@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-29 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료 — Phase 8 착수 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료, Phase 8 profile 간 통계 비교 완료(시간축 상관 분석 잔여) · **시작일**: 2026-07-22
 
 ---
 
@@ -208,7 +208,7 @@ Experiment Runner (Python)
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
 | 7 | Ambient + Waypoint 기준선 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
-| 8 | profile 비교와 병목 선정 | 🔄 진행 중 |
+| 8 | profile 비교와 병목 선정 | 🔄 통계 비교 완료(§6.7), 시간축 상관 분석 잔여 |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
 | 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
@@ -463,6 +463,49 @@ ztunnel 메모리는 15.8→16.1MiB로 **거의 그대로**다 — ztunnel이 �
 
 전체 Evidence: [2026-07-29 replica-scaling directional study](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md)
 
+### 6.7 Phase 8 profile 간 정식 통계 비교 — 완료 (2026-07-30)
+
+Phase 4~6에서 확보한 No-Mesh/Sidecar/Ambient 세 profile의 정식 반복측정 데이터를 서로 비교하는 도구
+(`experiments/compare_profiles.py`)를 새로 만들었다. 세 profile은 각자 독립된 반복측정 세션으로
+측정됐기 때문에(예: Sidecar의 3번째 run과 Ambient의 3번째 run은 서로 짝지어진 관계가 아니다) 엄밀한
+"paired" 검정 대신 **독립 2-표본 bootstrap**(그룹별로 각각 10,000회 리샘플링, 두 median 차이의 95% CI)을
+사용했다. nominal/high/near-saturation 3개 부하 조건 × 3개 profile 쌍 × 6개 지표 = 36개 비교를 수행했다.
+
+| 지표 | 유의한 비교 수 | 요약 |
+|---|---:|---|
+| network bytes/request | 9/9 (전부 유의) | Sidecar가 세 부하 조건 모두에서 No-Mesh 대비 **~49% 증가**(일관됨), Ambient는 ~1-2%만 증가 |
+| p95/p99 latency | 1/18 | high(17 RPS) 조건 No-Mesh vs Ambient 1건만 유의(p99 +12.4ms), near-saturation에서는 방향이 뒤집혀 재현 안 됨 |
+| throughput | 1/9 | 통계적으론 유의하나 크기가 0.0003 RPS로 실질적 의미 없음 |
+| memory (application) | 1/9 | No-Mesh가 Sidecar보다 251MB 높음 — 인과 메커니즘 불명, mesh 비용 주장으로 보지 않음 |
+| CPU-per-request (application) | 0/9 | 세 profile 어디서도 애플리케이션 자체의 요청당 CPU 비용에 유의한 차이 없음 |
+
+**가장 깔끔한 발견은 network bytes/request다.** Sidecar는 세 부하 조건(8/17/22 RPS) 모두에서 No-Mesh 대비
+정확히 같은 패턴으로 요청당 네트워크 바이트가 약 10,200~11,500바이트(~49%) 늘어난다 — Envoy가 매 hop마다
+붙이는 mTLS 핸드셰이크/레코드와 HTTP/2 프레이밍 오버헤드가 원인으로 추정된다. Ambient는 같은 비교에서
+증가폭이 260~470바이트(~1-2%)로 Sidecar의 약 1/20~1/40 수준이다 — "Ambient가 Sidecar보다 wire-level에서
+가볍다"는 아키텍처적 설명에 처음으로 구체적인 수치 근거가 붙었다.
+
+**Latency 차이는 36개 비교 중 단 1건만 유의했고, 그 1건조차 다음 부하 단계에서 재현되지 않았다.** high
+조건에서 Ambient가 No-Mesh보다 p99가 12.4ms 느리다는 결과가 나왔지만, near-saturation에서는 오히려
+Ambient가 더 빠른 방향(유의하지 않음)으로 나타났다. 실제 병목이라면 부하가 늘수록 같은 방향으로 심해져야
+하는데 방향이 뒤집혔으므로, **이 1건을 "확정된 결론"으로 보지 않고** 36번 검정 중 우연히 나온 유의한
+결과일 가능성(다중비교 문제)까지 감안해 "추가 검증이 필요한 신호" 정도로만 기록했다. 다만 방향 자체는
+Phase 6.6 replica-scaling 연구의 "Ambient latency가 replica 증가에 따라 나빠진다"는 관찰과 같은 방향이라,
+Phase 9에서 ztunnel의 공유 자원 저하 가설을 더 깊게 확인할 근거는 된다.
+
+**애플리케이션 자체의 요청당 CPU 비용은 9개 비교 전부 유의한 차이가 없었다** — 이건 "차이를 못 찾음"이
+아니라 의미 있는 부정 결과다. 세 profile 중 어느 것도 애플리케이션 프로세스 자체의 연산 비용을 바꾸지
+않는다는 뜻이며, mesh 오버헤드는 (이미 Phase 5/6에서 별도로 측정한) 프록시 자체의 CPU/메모리와, 이번에
+새로 확인한 network bytes 증가로 좁혀진다.
+
+Phase 8 결과로부터 도출한 Phase 9 개선 가설 후보 3건: (1) Sidecar의 mTLS+HTTP/2 프레이밍이 network 오버헤드의
+주 원인이라는 가설, (2) ztunnel 공유 프록시가 부하/replica 증가에 따라 latency 병목이 될 수 있다는 미확정
+가설(반복 측정 필요), (3) mesh 비용은 proxy/network 계층에 국한되고 application 계층에는 전이되지 않는다는
+확인된 부정 결과 — 이는 Phase 9 개선 작업의 타겟을 애플리케이션이 아니라 프록시 설정(mTLS 핸드셰이크 재사용,
+connection pooling 등)으로 좁혀준다.
+
+전체 Evidence: [2026-07-30 Phase 8 cross-profile comparison](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -567,14 +610,13 @@ ztunnel 메모리는 15.8→16.1MiB로 **거의 그대로**다 — ztunnel이 �
 |---|---|---|
 | 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
-| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | Phase 6 완료 |
-| 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | Phase 5~7 완료 |
-| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | Phase 8 승인 |
+| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
+| 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | 🔄 통계 비교 완료(§6.7), 시간축 상관 분석 잔여 |
+| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | Phase 8 완료 후 착수 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
-`[TODO: Phase 6 replica/node 확장 측정 수치와 Phase 7 Waypoint 관련 수치]`
-`[TODO: Phase 8 병목 후보 3개 이상과 지지/반대 Evidence]`
+`[TODO: Phase 8 시간축 metric/trace/resource 상관 분석 결과]`
 `[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
 `[TODO: Phase 10 장애 주입 시나리오와 회복 지표]`
 `[TODO: Phase 11 워크로드별 최종 선택 Matrix]`
@@ -626,6 +668,7 @@ ztunnel 메모리는 15.8→16.1MiB로 **거의 그대로**다 — ztunnel이 �
 | Ambient Baseline 최종 Evidence | [docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md) |
 | Waypoint blocked 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
 | Replica-scaling 방향성 연구 Evidence | [docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md) |
+| Phase 8 profile 간 통계 비교 Evidence | [docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |
