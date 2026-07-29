@@ -1,0 +1,15 @@
+profile: waypoint
+
+global:
+  tracingSamplingProbability: "1.0"
+
+sidecar:
+  enabled: false
+
+ambient:
+  enabled: true
+  hbonePort: 15008
+
+waypoint:
+  enabled: true
+  orchestratorGatewayName: orchestrator-waypoint

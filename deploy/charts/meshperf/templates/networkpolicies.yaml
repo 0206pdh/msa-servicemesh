@@ -99,6 +99,14 @@ spec:
         {{- if .Values.ambient.enabled }}
         - {protocol: TCP, port: {{ .Values.ambient.hbonePort }}}
         {{- end }}
+    {{- if .Values.waypoint.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: {{ .Values.waypoint.orchestratorGatewayName }}
+      ports:
+        - {protocol: TCP, port: {{ .Values.ambient.hbonePort }}}
+    {{- end }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -134,6 +142,14 @@ spec:
         {{- if .Values.ambient.enabled }}
         - {protocol: TCP, port: {{ .Values.ambient.hbonePort }}}
         {{- end }}
+    {{- if .Values.waypoint.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: {{ .Values.waypoint.orchestratorGatewayName }}
+      ports:
+        - {protocol: TCP, port: 8080}
+    {{- end }}
   egress:
     - to:
         - podSelector:

@@ -5,9 +5,9 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 6 — Istio Ambient 고정 replica baseline 완료, replica/node 확장 측정 잔여
-- Infrastructure Step: ztunnel/istio-cni 설치와 고정 replica 정식 반복측정 완료
-- Status: phase-6-scaling-study-pending-phase-7-not-started
+- Overall Phase: Phase 7 — Waypoint 배포 중 원인 불명 연결 실패로 blocked. Phase 8은 3개 profile로 진행 예정
+- Infrastructure Step: 클러스터는 순수 Ambient 상태로 복구됨 (Waypoint Gateway 제거)
+- Status: phase-7-blocked-phase-6-scaling-study-pending
 - Last updated: 2026-07-29
 
 ## 완료된 기준점
@@ -77,12 +77,17 @@
 - [x] ztunnel CPU/메모리를 노드 단위 절대값으로 수집(Pod당 정규화 안 함), throttling 게이트 추가
 - [x] Ambient 고정 replica(1개) 정식 반복측정 완료: nominal 10회/near-saturation 14회 `STOP_PRECISION_REACHED`, high 15회 `INCONCLUSIVE_MAX_RUNS`
 - [x] Phase 6 고정 replica baseline Evidence 완료
+- [x] Waypoint 배포 범위 결정 (ADR-0026, 선택 경로/단일 hop)
+- [x] `istio-waypoint` GatewayClass 자동 생성과 Gateway 리소스로 Waypoint Pod 프로비저닝 확인
+- [x] gateway→waypoint 홉 NetworkPolicy 수정(HBONE 15008)과 정상 동작 확인
+- [ ] **waypoint→실제 backend pod 홉이 원인 불명으로 항상 실패 — Phase 7 blocked** (`phase-07-p1-waypoint-blocked` 참고, 같은 노드 가설은 patch로 재현·기각함)
+- [x] 클러스터를 순수 Ambient 상태로 복구 (Waypoint 리소스 제거, SYNC_CHAIN 정상 동작 재확인)
 
 ## 다음 작업
 
 1. **Phase 6 잔여**: Pod/worker replica와 노드 수 증가에 따른 ztunnel 공유 비용 확장 특성을 측정한다 (가설 1의 핵심 근거, 아직 미착수). Phase 8 병목 분석 전에 반드시 완료해야 한다.
-2. Phase 7(Waypoint) 착수: 선택적 L7 proxy 배치 방식과 버전을 결정한다.
-3. Waypoint 통과 트래픽과 replica에 따른 병목 여부를 같은 절대 RPS로 측정한다.
+2. Phase 8(병목 분석) 착수: No-Mesh/Sidecar/Ambient 세 profile 데이터로 진행한다(Waypoint는 blocked 상태로 제외).
+3. Waypoint는 `istioctl` 등 추가 진단 도구가 갖춰지면 재시도한다 (Phase 7 재개 조건).
 
 ## 현재 한계
 
@@ -94,6 +99,7 @@
 - Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint)도 같은 제약을 받을 것으로 예상한다.
 - **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
 - kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
+- **Phase 7(Waypoint)은 blocked 상태다** — orchestrator-service 단일 hop 구성에서 gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 같은 노드 배치 가설은 podAntiAffinity로 재현·기각했다. `istioctl` 없이는 근본 원인을 더 파기 어려워 보류했다. Phase 8은 Waypoint 없이 3개 profile로 진행한다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -138,7 +144,14 @@
 - Ambient 호환성 수정 2건: probe를 httpGet(pod IP)→exec wget(127.0.0.1)로 전환, NetworkPolicy에 HBONE 포트 15008 추가(ambient.enabled 게이트)
 - Ambient formal baseline 최종: nominal 10회(`STOP_PRECISION_REACHED`)/high 15회(`INCONCLUSIVE_MAX_RUNS`)/near-saturation 14회(`STOP_PRECISION_REACHED`)
 - ztunnel 실측: 누적 CPU 72.9~82.4 core-s/run window(클러스터 전체, per-request 아님), 메모리 peak 약 16.7~16.9MiB (Envoy 대비 훨씬 가벼움)
-- Git: ADR-0025 `39cf266`, Ambient 지원과 호환성 수정 `b63c386`, ztunnel 자원 수집 `e35d391`, Phase 6 최종 Evidence 커밋 예정
+- Git: ADR-0025 `39cf266`, Ambient 지원과 호환성 수정 `b63c386`, ztunnel 자원 수집 `e35d391`, Phase 6 최종 Evidence `a8b9fd6`
+- Waypoint: `istio-waypoint` GatewayClass 자동 생성 확인, Gateway 리소스로 Pod 자동 프로비저닝 확인
+- Waypoint 진단: Envoy `/clusters`에서 `cx_total=1,cx_connect_fail=0,rq_error=1,rq_success=0` — TCP는 연결되지만 HTTP 요청이 즉시 리셋. ztunnel access log에 해당 연결 기록 없음
+- Waypoint 재현 시도: podAntiAffinity로 다른 노드 강제 배치 후에도 동일 실패 — 같은 노드 가설 기각
+- Waypoint 심화 진단: `istioctl` 설치 후 xDS 설정 확인(정상), Waypoint 내부→실제 backend 평문 curl 성공(네트워킹 정상), `cilium-dbg endpoint list`에 Waypoint IP 미노출(원인 불명)
+- Waypoint 거짓 양성 발견: 클린 재배포 직후 5연속 성공했으나 Waypoint 자체 rq_total은 무변화 → 20연속 재시도 시 0/20 성공. 최초 성공은 연결 풀 재사용에 의한 우회로 판정
+- 클러스터 복구: Waypoint 라우팅 완전 제거 후 SYNC_CHAIN HTTP 200/3-hop 완료 재확인
+- Git: ADR-0026 `af0d10c`, Phase 7 blocked 체크포인트 커밋 예정
 
 ## 재개 절차
 

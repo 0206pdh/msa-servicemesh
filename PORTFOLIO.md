@@ -207,7 +207,7 @@ Experiment Runner (Python)
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
-| 7 | Ambient + Waypoint 기준선 | `[TODO]` |
+| 7 | Ambient + Waypoint 기준선 | 🚧 blocked (원인 불명 연결 실패) |
 | 8 | profile 비교와 병목 선정 | `[TODO]` |
 | 9 | 개선안별 단일 변수 실험 | `[TODO]` |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
@@ -237,6 +237,15 @@ Experiment Runner (Python)
 - [x] 고정 replica에서 paired core 조건 유효 run 최소 10회 (§6.4)
 - [ ] **replica/node 확장에 따른 공유 비용 측정 — 잔여 작업**
 - [x] Phase 6 Evidence `measured` (고정 replica 범위 한정)
+
+### 5.4 Phase 7 세부 체크리스트
+
+- [x] Waypoint 배포 범위 결정 — 선택 경로(단일 hop) 우선 (ADR-0026)
+- [x] `istio-waypoint` GatewayClass 자동 생성과 Gateway 리소스로 Pod 자동 프로비저닝 확인
+- [x] gateway→waypoint 홉 NetworkPolicy 수정과 정상 동작 확인
+- [ ] **waypoint→실제 backend pod 홉 연결 — blocked, 원인 불명** (§6.5)
+- [ ] paired core 조건 반복측정 — 위 차단으로 미착수
+- [ ] Phase 7 Evidence — blocked
 
 ---
 
@@ -371,6 +380,43 @@ Cilium(kube-proxy-replacement + VXLAN)과 Istio Ambient 조합은 사전에 위�
 
 전체 Evidence: [2026-07-29 canonical ambient baseline final](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md)
 
+### 6.5 Phase 7 Waypoint — blocked, 원인 불명 (2026-07-29)
+
+Ambient 위에 orchestrator-service 단일 hop만 Waypoint를 경유하도록 배포했다. Istio 1.30.3은
+`PILOT_ENABLE_AMBIENT=true`가 켜지면 `istio-waypoint` GatewayClass를 자동 생성해두므로, 별도 설치 없이
+Gateway API 리소스 하나만 만들면 Waypoint Pod가 자동으로 뜬다 — 여기까지는 문제없이 됐다.
+
+**두 홉 중 하나만 통과했다.** gateway→waypoint 홉은 Ambient 때와 같은 패턴의 NetworkPolicy 누락(HBONE
+포트)이었고 같은 방식으로 수정해서 해결했다. 하지만 waypoint→실제 orchestrator pod 홉은 계속 실패했다.
+Envoy 관리자 API로 들여다보니 **TCP 연결 자체는 성공하는데(`cx_total=1`, `cx_connect_fail=0`) HTTP
+요청은 즉시 리셋된다(`rq_error=1`, `rq_success=0`)** — 그리고 이 연결은 ztunnel의 access log에 전혀
+기록되지 않는다(같은 시간대 다른 정상 트래픽은 다 잡히는데 이것만 안 잡힘).
+
+"Waypoint와 실제 backend pod가 우연히 같은 노드에 배치돼서 Cilium이 로컬 트래픽 최적화 경로로 ambient
+캡처 규칙을 우회하는 것 아닐까"라는 가설을 세우고, Waypoint Deployment에 `podAntiAffinity`를 직접 patch해
+다른 노드로 강제 이동시켜 재현해봤다 — **똑같은 실패가 그대로 재현**되어 이 가설은 기각됐다.
+
+**사용자가 "그래도 해결해보라"고 요청해서 한 단계 더 파고들었다.** `istioctl`을 새로 설치해 Waypoint의
+실제 xDS 설정을 직접 열어보니, 설정 자체(`ORIGINAL_DST` 타입, 포트를 15008로 강제 override, TLS 1.3 +
+SPIFFE 검증)는 정상이었다. 그런데 Waypoint Pod **안에서 직접** 실제 orchestrator Pod로 평문 curl을
+날려보니 즉시 성공했다 — 네트워킹과 NetworkPolicy 자체는 문제가 없다는 뜻이다. 동시에 `cilium-dbg
+endpoint list`에 Waypoint Pod의 IP가 아예 나타나지 않는 것도 발견했다(원인 불명). 그러다 클린하게
+재배포한 직후 5연속 성공을 관측해 "해결됐다"고 판단했는데, **Waypoint 자체의 요청 카운터는 그 "성공한"
+요청들에서도 전혀 움직이지 않았다.** 곧바로 20연속 재시도했더니 **0/20 성공**으로 돌아갔다 — 처음의
+성공은 Waypoint 설정 이전에 gateway 앱이 이미 맺어둔 연결 풀(keep-alive)이 우연히 재사용되며 Waypoint를
+완전히 우회한 거짓 양성이었다.
+
+**최종적으로 다시 멈추고 사용자에게 재보고했다.** `istioctl`까지 동원한 심화 진단에도 재현성이 극히
+불안정하고 근본 원인을 확정하지 못했다 — 이 클러스터의 특정 버전 조합(Cilium 1.19.6 + Istio ambient
+waypoint 1.30.3)에서 실제로 존재하는 버그이거나 깊은 호환성 문제로 판단된다. 지금까지 고친 두 건(probe
+캡처, NetworkPolicy 포트 누락)은 명확한 원인과 안전한 수정이 있었지만, 이번 건은 계속 판 결과에서도
+Cilium의 코어 데이터플레인 동작과 관련될 가능성이 짙어졌다. 사용자는 Waypoint 측정을 미해결 항목으로
+남기고 Phase 8(병목 분석)을 이미 확보한 No-Mesh/Sidecar/Ambient 세 profile 데이터로 진행하는 쪽을
+최종 선택했다. 클러스터는 Waypoint 라우팅을 완전히 제거하고 순수 Ambient 상태로 정상 복구했다
+(SYNC_CHAIN E2E 재확인 완료).
+
+상세 진단 기록: [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -447,7 +493,19 @@ Cilium(kube-proxy-replacement + VXLAN)과 Istio Ambient 조합은 사전에 위�
     미리 인식하고, 코드에도 "cluster-wide-shared-not-per-request"라는 명시적 attribution 필드를 남겨
     나중에 이 숫자를 잘못 해석할 위험을 차단했다.
 
-`[TODO: Phase 7 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
+14. **"성공"으로 보이는 결과를 통계 없이 믿지 않는 습관이 거짓 양성을 잡아냄**: Waypoint 재배포 직후
+    5연속 curl 성공을 보고 한때 "해결됐다"고 판단했지만, Envoy 자체의 요청 카운터가 그 성공 케이스들에서
+    전혀 움직이지 않았다는 걸 교차 확인해 이상함을 감지했다. 즉시 20회 배치 재시도로 검증했더니 0/20으로
+    실패율이 뒤집혔다 — "몇 번 성공했다"가 아니라 "그 성공이 실제로 측정하려는 경로를 통과했는가"를
+    항상 별도로 검증해야 한다는 걸 실제 사례로 재확인했다. 이 프로젝트 전체의 "Evidence 없는 결론 금지"
+    원칙이 로그 하나 잘못 읽었으면 놓쳤을 거짓 양성을 실제로 걸러낸 사례다.
+15. **한계에 부딪혔을 때 계속 밀어붙이기보다 진단 도구를 먼저 확충**: 로그와 Envoy admin API만으로
+    원인을 못 찾자, 무작정 설정을 이것저것 바꿔보는 대신 `istioctl`(정식 진단 CLI)을 새로 설치해
+    `proxy-config`로 실제 xDS 설정을 직접 열어보는 쪽을 택했다. 결과적으로 근본 원인 자체는 못 찾았지만,
+    "설정은 정상인데 실제 동작이 다르다"는 걸 확인함으로써 문제의 성격(설정 실수가 아니라 버전 조합의
+    깊은 호환성 문제)을 훨씬 정확하게 좁혔다.
+
+`[TODO: Phase 8 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
 ---
 

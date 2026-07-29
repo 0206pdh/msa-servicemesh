@@ -71,11 +71,12 @@
 
 ## Phase 7 — Waypoint
 
-- [ ] 전체/선택 경로 profile 분리
-- [ ] Waypoint 통과와 L7 기능 검증
-- [ ] replica/queue/saturation 측정
-- [ ] 적용 범위별 비용 Evidence
-- [ ] Phase 7 Evidence measured
+- [x] 선택 경로(단일 hop) 배포 범위 결정 (ADR-0026)
+- [ ] **Waypoint 통과 검증 — 차단됨**: gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이
+      항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 노드 분리로도 재현되어 원인 불명 (`phase-07-p1-waypoint-blocked` 참고)
+- [ ] replica/queue/saturation 측정 — 위 차단으로 미착수
+- [ ] 적용 범위별 비용 Evidence — 미착수
+- [ ] Phase 7 Evidence — **blocked**, Phase 8은 No-Mesh/Sidecar/Ambient 세 profile로 진행
 
 ## Phase 8 — 병목 분석
 

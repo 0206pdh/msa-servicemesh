@@ -12,6 +12,10 @@ ambient:
   enabled: false
   hbonePort: 15008
 
+waypoint:
+  enabled: false
+  orchestratorGatewayName: orchestrator-waypoint
+
 javaResources: &javaResources
   requests:
     cpu: 100m

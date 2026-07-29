@@ -32,9 +32,10 @@ Waypoint를 적용하는 구성으로 한정**한다. orchestrator-service는 SY
 
 ### 자원 크기
 
-ADR-0024와 동일한 원칙: request만 클러스터에 맞게 축소하고, limit은 Istio 기본값을 유지해 실측값이
-인위적으로 눌리지 않게 한다. `helm show values istio/istiod`에서 확인한 waypoint 기본값(요청 100m
-CPU/128Mi 메모리, 제한 2 CPU/1Gi 메모리)에서 요청만 낮춘다: CPU 50m, 메모리 96Mi.
+istiod chart의 waypoint 기본값(요청 100m CPU/128Mi 메모리, 제한 2 CPU/1Gi 메모리)은
+`_internal_defaults_do_not_set` 아래에 있다 — Istio가 명시적으로 "직접 오버라이드하지 말라"고 이름 붙인
+경로다. ADR-0024/0025와 달리 이번에는 강제로 축소하지 않고 **기본값을 그대로 사용**한다. 배포 시점 기준
+worker 노드 헤드룸(CPU 43%, 메모리 31% 사용)이 이 기본 요청값을 충분히 수용하는 것을 실측으로 확인했다.
 
 ### 자원 귀속 모델
 
