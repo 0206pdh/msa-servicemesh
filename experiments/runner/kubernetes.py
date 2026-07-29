@@ -57,6 +57,25 @@ class KubernetesAdapter:
             raise RuntimeError(f"Prometheus query failed: {query}")
         return response
 
+    def prometheus_query_range(self, query: str, start: float, end: float, step_seconds: int) -> dict:
+        path = (
+            f"/api/v1/namespaces/{self.prometheus_namespace}/services/http:"
+            f"{self.prometheus_service}:9090/proxy/api/v1/query_range?query={quote(query, safe='')}"
+            f"&start={start}&end={end}&step={step_seconds}s"
+        )
+        response = self.kubectl("get", "--raw", path, json_output=True)
+        if response.get("status") != "success":
+            raise RuntimeError(f"Prometheus range query failed: {query}")
+        return response
+
+    @staticmethod
+    def _matrix(response: dict) -> list[dict]:
+        return [
+            {"labels": series.get("metric", {}),
+             "values": [[float(ts), float(value)] for ts, value in series.get("values", [])]}
+            for series in response.get("data", {}).get("result", [])
+        ]
+
     def service_raw(self, namespace: str, service: str, port: int, path: str) -> dict:
         return self.kubectl(
             "get", "--raw", f"/api/v1/namespaces/{namespace}/services/http:{service}:{port}/proxy{path}",
@@ -273,6 +292,53 @@ class KubernetesAdapter:
         if (snapshot.get("ztunnelCpuThrottledPeriods") or 0) > 0:
             factors.append("ZTUNNEL_CPU_THROTTLED")
         return factors
+
+    def window_timeseries(self, start_iso: str, end_iso: str, step_seconds: int = 15) -> dict:
+        """Real query_range time series for the run window, saved alongside the
+        whole-window aggregate scalars in window_snapshot(). The aggregate-only
+        snapshot cannot answer "did this spike during a specific sub-interval"
+        (see Phase 8's 2026-07-30 comparison Evidence, "Time-axis correlation"
+        section) -- this exists so future runs don't hit that same wall."""
+        from datetime import datetime
+        start = datetime.fromisoformat(start_iso.replace("Z", "+00:00")).timestamp()
+        end = datetime.fromisoformat(end_iso.replace("Z", "+00:00")).timestamp()
+        return {
+            "startEpoch": start,
+            "endEpoch": end,
+            "stepSeconds": step_seconds,
+            "applicationCpuCoreRate": self._matrix(self.prometheus_query_range(
+                f'sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",container!="",'
+                f'container!="POD",container!="istio-proxy",container!="istio-init"}}[30s]))',
+                start, end, step_seconds)),
+            "applicationMemoryWorkingSetBytes": self._matrix(self.prometheus_query_range(
+                f'sum(container_memory_working_set_bytes{{namespace="{self.namespace}",container!="",'
+                f'container!="POD",container!="istio-proxy",container!="istio-init"}})',
+                start, end, step_seconds)),
+            "sidecarCpuCoreRate": self._matrix(self.prometheus_query_range(
+                f'sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'container="istio-proxy"}}[30s]))',
+                start, end, step_seconds)),
+            "sidecarMemoryWorkingSetBytes": self._matrix(self.prometheus_query_range(
+                f'sum(container_memory_working_set_bytes{{namespace="{self.namespace}",container="istio-proxy"}})',
+                start, end, step_seconds)),
+            "ztunnelCpuCoreRate": self._matrix(self.prometheus_query_range(
+                f'sum(rate(container_cpu_usage_seconds_total{{namespace="istio-system",'
+                f'pod=~"ztunnel-.*",container="istio-proxy"}}[30s]))',
+                start, end, step_seconds)),
+            "networkRxBytesRate": self._matrix(self.prometheus_query_range(
+                f'sum(rate(container_network_receive_bytes_total{{namespace="{self.namespace}"}}[30s]))',
+                start, end, step_seconds)),
+            "networkTxBytesRate": self._matrix(self.prometheus_query_range(
+                f'sum(rate(container_network_transmit_bytes_total{{namespace="{self.namespace}"}}[30s]))',
+                start, end, step_seconds)),
+            "nodeCpuPercent": self._matrix(self.prometheus_query_range(
+                '100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[2m])))',
+                start, end, step_seconds)),
+            "requestRatePerSecond": self._matrix(self.prometheus_query_range(
+                f'sum(rate(http_server_requests_seconds_count{{namespace="{self.namespace}",'
+                f'uri=~"/api/v1/.*"}}[30s]))',
+                start, end, step_seconds)),
+        }
 
     def trace_marker(self, run_id: str) -> dict:
         request = Request(

@@ -101,6 +101,15 @@ class Runner:
             if adapter:
                 self._write(raw / "kubernetes-postflight.json", postflight)
                 self._write(raw / "prometheus-window.json", window_snapshot)
+                # Diagnostic-only: a real time series for this run's window, not just
+                # the aggregate scalars above. Never gates or invalidates the run --
+                # this exists purely so later phases can do time-axis correlation
+                # without depending on the observability stack's own short retention.
+                try:
+                    timeseries = adapter.window_timeseries(started, ended)
+                except Exception as exc:
+                    timeseries = {"error": str(exc)}
+                self._write(raw / "prometheus-timeseries.json", timeseries)
                 self._write(raw / "hubble-flows.json", hubble_flows)
                 self._write(raw / "cleanup-gate.json", {"invalidatingFactors": cleanup_factors})
             summary = self._summary(spec, run_dir, started, ended, preflight_factors + cleanup_factors,
