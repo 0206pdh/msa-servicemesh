@@ -718,6 +718,7 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 |---|---|
 | 프로젝트 개요 | [docs/00-project-overview.md](docs/00-project-overview.md) |
 | 무엇을 왜 테스트했는가 (처음부터 끝까지 설명) | [docs/testing-explained.md](docs/testing-explained.md) |
+| 인프라 YAML 완전 정복 (설정 파일 한 줄씩 설명) | [docs/infrastructure-deep-dive.md](docs/infrastructure-deep-dive.md) |
 | 범위·성공 기준 | [docs/01-scope-and-success-criteria.md](docs/01-scope-and-success-criteria.md) |
 | 아키텍처 | [docs/02-architecture.md](docs/02-architecture.md) |
 | 개념·용어 | [docs/03-concepts-and-glossary.md](docs/03-concepts-and-glossary.md) |

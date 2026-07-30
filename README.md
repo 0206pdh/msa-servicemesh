@@ -9,6 +9,8 @@ Benchmark Workload다.
 > 개요부터 결론까지 한 번에 보려면 [포트폴리오 요약(PORTFOLIO.md)](PORTFOLIO.md)을 참고한다.
 > 무엇을, 왜 이렇게 테스트했는지 처음부터 끝까지 풀어 쓴 설명은
 > [docs/testing-explained.md](docs/testing-explained.md)를 참고한다.
+> 실제 YAML/Helm 설정을 한 줄씩 이해하고 싶다면
+> [docs/infrastructure-deep-dive.md](docs/infrastructure-deep-dive.md)를 참고한다.
 
 ## 중심 질문
 
@@ -114,7 +116,7 @@ Workload는 지연, 오류율, 응답 크기, CPU, 메모리, fan-out 수와 hop
 | 실행 | [전체 Phase](docs/phases/README.md), [Workload Phase](docs/phases/application-development.md) |
 | 계약 | [계약 인덱스](contracts/README.md), [API와 데이터](docs/application/api-and-data.md) |
 | 진행 상태 | [CURRENT](docs/CURRENT.md), [Phase 체크리스트](docs/checkpoints/phase-checklists.md) |
-| 개념 | [핵심 개념과 용어](docs/03-concepts-and-glossary.md), [무엇을 왜 테스트했는가](docs/testing-explained.md) |
+| 개념 | [핵심 개념과 용어](docs/03-concepts-and-glossary.md), [무엇을 왜 테스트했는가](docs/testing-explained.md), [인프라 YAML 완전 정복](docs/infrastructure-deep-dive.md) |
 | 검증 | [실험 계획](docs/experiments/README.md), [Evidence](docs/evidence-management.md) |
 | 결정 | [ADR](docs/decisions/README.md), [위험과 백로그](docs/risks-and-backlog.md) |
 
