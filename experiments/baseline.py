@@ -28,8 +28,12 @@ def measurement_duration(target_rps: int) -> int:
 def formal_spec(
     condition: str, target_rps: int, run_id_prefix: str = "phase4-chain-baseline",
     profile: str = "NO_MESH", extra_spec_fields: dict | None = None,
+    expected_scrape_targets: int = 7,
 ) -> dict:
-    spec = discovery_spec(f"{run_id_prefix}-{condition}", target_rps, profile=profile)
+    spec = discovery_spec(
+        f"{run_id_prefix}-{condition}", target_rps, profile=profile,
+        expected_scrape_targets=expected_scrape_targets,
+    )
     spec["seed"] = 42
     spec["timeSynchronized"] = True
     spec["loadProfile"].update({
@@ -60,6 +64,7 @@ class BaselineMeasurement:
         self, root: Path, state_path: Path, cooldown_seconds: int = 120,
         run_id_prefix: str = "phase4-chain-baseline", profile: str = "NO_MESH",
         conditions: dict[str, int] | None = None, extra_spec_fields: dict | None = None,
+        expected_scrape_targets: int = 7,
     ):
         self.root = root
         self.state_path = state_path
@@ -68,6 +73,7 @@ class BaselineMeasurement:
         self.profile = profile
         self.conditions = dict(conditions) if conditions is not None else dict(CONDITIONS)
         self.extra_spec_fields = extra_spec_fields
+        self.expected_scrape_targets = expected_scrape_targets
         self.state = self._load()
 
     def _load(self) -> dict:
@@ -107,6 +113,7 @@ class BaselineMeasurement:
             condition, self.conditions[condition],
             run_id_prefix=self.run_id_prefix, profile=self.profile,
             extra_spec_fields=self.extra_spec_fields,
+            expected_scrape_targets=self.expected_scrape_targets,
         )
 
     def _decision(self, condition: str) -> dict:
@@ -294,6 +301,11 @@ def main(argv: list[str] | None = None) -> int:
              "run's config fingerprint from the canonical baseline of the same profile "
              "(e.g. Phase 9's mtls-disabled Sidecar experiment)",
     )
+    parser.add_argument(
+        "--expected-scrape-targets", type=int, default=7,
+        help="override the Prometheus scrape-target gate count, e.g. for a replica-scaling "
+             "experiment where one service runs more than 1 replica",
+    )
     args = parser.parse_args(argv)
     conditions = None
     if args.conditions:
@@ -306,6 +318,7 @@ def main(argv: list[str] | None = None) -> int:
         args.root.resolve(), args.state.resolve(), args.cooldown_seconds,
         run_id_prefix=args.run_id_prefix, profile=args.profile,
         conditions=conditions, extra_spec_fields=extra_spec_fields,
+        expected_scrape_targets=args.expected_scrape_targets,
     ).execute_session(args.session, args.blocks)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

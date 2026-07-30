@@ -20,7 +20,8 @@ CAPACITY_FAILURE_FACTORS = {
 }
 
 
-def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, profile: str = "NO_MESH") -> dict:
+def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, profile: str = "NO_MESH",
+                    expected_scrape_targets: int = 7) -> dict:
     load = {
         "executor": "CONSTANT_ARRIVAL_RATE",
         "targetRps": target_rps,
@@ -34,7 +35,7 @@ def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, 
         "namespace": "benchmark",
         "prometheusNamespace": "observability",
         "prometheusService": "monitoring-kube-prometheus-prometheus",
-        "expectedScrapeTargets": 7,
+        "expectedScrapeTargets": expected_scrape_targets,
         "minimumNodeMemoryAvailableBytes": 1_073_741_824,
         "maximumNodeCpuPercent": 85,
         "telemetrySettleSeconds": 20,

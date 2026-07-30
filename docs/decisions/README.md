@@ -21,6 +21,7 @@
 | [ADR-0026](0026-waypoint-deployment-scope.md) | accepted | Waypoint 선택 경로(단일 hop) 우선 배치와 자원 모델 |
 | [ADR-0027](0027-replica-scaling-study-scope.md) | accepted | Replica 확장 비용 연구를 방향성 확인 범위로 축소 |
 | [ADR-0028](0028-phase9-sidecar-mtls-disable-experiment.md) | accepted | Phase 9 개선 실험 1 — Sidecar mTLS DISABLE 단일 변수 실험 |
+| [ADR-0029](0029-phase9-ambient-replica-scaling-formal-experiment.md) | accepted | Phase 9 개선 실험 2 — Ambient replica 확장 latency 저하 정식 확인 |
 
 ## 템플릿
 

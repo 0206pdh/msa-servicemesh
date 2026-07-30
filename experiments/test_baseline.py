@@ -103,6 +103,15 @@ class BaselineMeasurementTests(unittest.TestCase):
         # Regression guard: the pinned no-mesh fingerprint test above must still pass
         # unchanged since extra_spec_fields defaults to None.
 
+    def test_formal_spec_accepts_expected_scrape_targets_override(self):
+        default_spec = formal_spec("nominal", 8, run_id_prefix="phase9-ambient-replica4", profile="AMBIENT")
+        self.assertEqual(default_spec["kubernetes"]["expectedScrapeTargets"], 7)
+        scaled_spec = formal_spec(
+            "nominal", 8, run_id_prefix="phase9-ambient-replica4", profile="AMBIENT",
+            expected_scrape_targets=10,
+        )
+        self.assertEqual(scaled_spec["kubernetes"]["expectedScrapeTargets"], 10)
+
     def test_baseline_measurement_can_scope_to_a_single_condition(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

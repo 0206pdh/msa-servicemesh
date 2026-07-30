@@ -10,6 +10,14 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual(spec["workloadConfig"]["hopCount"], 3)
         self.assertEqual(spec["loadProfile"]["targetRps"], 40)
 
+    def test_discovery_default_scrape_targets_is_seven(self):
+        spec = discovery_spec("run", 40)
+        self.assertEqual(spec["kubernetes"]["expectedScrapeTargets"], 7)
+
+    def test_discovery_accepts_expected_scrape_targets_override(self):
+        spec = discovery_spec("run", 40, expected_scrape_targets=10)
+        self.assertEqual(spec["kubernetes"]["expectedScrapeTargets"], 10)
+
     def test_p99_over_twice_low_load_fails(self):
         summary = {"status": "COMPLETED", "loadProfileTargetRps": 40,
                    "invalidatingFactors": [], "metrics": {"latencyMs": {"p99": 21}}}
