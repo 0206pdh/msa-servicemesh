@@ -63,6 +63,25 @@ Phase 8 통계 비교(`docs/evidence/performance/2026-07-30-phase8-cross-profile
 - mTLS DISABLE은 프로덕션에서 권장되는 설정이 아니므로, 이 실험 결과를 "이렇게 설정하라"는 권고가 아니라
   "오버헤드의 원인 분해"라는 진단 목적으로만 서술한다.
 
+## Amendment (2026-07-30): Istio-version confound caught before drawing conclusions
+
+The first DISABLE measurement (10 valid runs, `STOP_PRECISION_REACHED`) was compared against the existing
+Phase 5 canonical Sidecar nominal baseline as "before." Before reporting the result, a version check
+(`kubectl get deployment istiod -o jsonpath='{.metadata.labels.app.kubernetes.io/version}'`) found the
+cluster is now running **Istio 1.29.6**, not the 1.30.3 Phase 5 was measured on — because Istio was
+completely reinstalled at 1.29.6 during the Phase 7 Waypoint version-retry, after Phase 5's data had already
+been collected. This ADR's own "고정" section assumed identical Istio version and explicitly said so, but
+that assumption silently broke without anyone re-checking it, so the planned single-variable experiment
+(mTLS mode only) had actually become a two-variable one (mTLS mode **and** Istio version) without being
+caught until this point.
+
+**Fix:** rather than report a comparison confounded by two simultaneously-changed variables, a same-version
+control was measured: `phase9-sidecar-1296-permissive-control` — Sidecar with mTLS PERMISSIVE (mesh default,
+no PeerAuthentication resource), same Istio 1.29.6, same nominal (8 RPS) condition, same 10-15 rep precision
+gate. This makes the real comparison **1.29.6 PERMISSIVE vs 1.29.6 DISABLE** — actually isolating mTLS mode
+as the only variable — instead of the originally-run **1.30.3 PERMISSIVE vs 1.29.6 DISABLE**, which is kept
+on record as a secondary, confounded data point rather than discarded.
+
 ## Validation and rollback
 
 - `PeerAuthentication` 적용 후 `istioctl authn tls-check` 또는 Envoy config dump로 실제 plaintext 연결이
