@@ -1,9 +1,10 @@
 # Checkpoint — `phase-07-p1-waypoint-blocked`
 
-- Status: blocked (final — confirmed cross-version incompatibility, closed)
+- Status: **resolved (2026-07-30)** — root cause found and fixed, was never a version/architecture
+  incompatibility; see "최종 해결" section below. Kept as `phase-07-p1-waypoint-blocked` for history.
 - Owner: dohyun
 - Started at: 2026-07-29
-- Updated at: 2026-07-29
+- Updated at: 2026-07-30
 - Branch/commit: main (see commits referenced below)
 - Related Phase: [Phase 7](../phases/phase-07-waypoint.md)
 - Related contract/ADR: [ADR-0026](../decisions/0026-waypoint-deployment-scope.md)
@@ -19,9 +20,9 @@ Ambient 위에 orchestrator-service 단일 hop으로 Waypoint proxy를 배치하
 - [x] `istio-waypoint` GatewayClass 자동 생성 확인 (istiod `PILOT_ENABLE_AMBIENT=true`의 부수 효과)
 - [x] Gateway 리소스 생성과 Waypoint Pod 자동 프로비저닝 확인
 - [x] gateway→waypoint 홉 NetworkPolicy 수정 (HBONE 15008)
-- [ ] **waypoint→실제 backend pod 홉 연결 성공 — 미해결, Phase 7 차단 원인**
-- [ ] paired core 조건 반복측정
-- [ ] Phase 7 Evidence
+- [x] **waypoint→실제 backend pod 홉 연결 성공 — 2026-07-30 해결** (아래 "최종 해결" 절 참고)
+- [ ] paired core 조건 반복측정 — 착수 예정
+- [ ] Phase 7 Evidence — 측정 진행 예정
 
 ## 변경 근거
 
@@ -56,11 +57,13 @@ Ambient 위에 orchestrator-service 단일 hop으로 Waypoint proxy를 배치하
   connect error... connection termination")를 그대로 재현했다. 거짓 양성 가능성을 배제하기 위해 단일
   샘플이 아닌 20회 배치 요청으로 재확인한 결과 **0/20 성공** — 1.30.3에서 관측한 것과 정확히 동일한 실패
   패턴이었다.
-- 결정(최종): 서로 다른 두 Istio minor 버전(1.30.3, 1.29.6)에서 완전 재설치 후에도 동일한 0/20 실패가
-  재현됨을 확인했다. 이는 특정 Istio 릴리스의 일시적 버그가 아니라, 이 클러스터의 Cilium 구성(1.19.6,
-  kube-proxy-replacement=true, routing-mode=tunnel/VXLAN — ADR-0025에서 사전에 위험 조합으로 표시됨)과
-  Istio Ambient Waypoint 아키텍처 사이의 **버전 독립적인 근본 비호환**으로 최종 판단하고 조사를 종료한다.
-  클러스터는 Waypoint Gateway/라벨을 제거하고 순수 Ambient 상태로 복구했으며 SYNC_CHAIN 정상 동작을
+- 결정(2026-07-29 시점, **이후 "최종 해결" 절에서 정정됨**): 서로 다른 두 Istio minor 버전(1.30.3,
+  1.29.6)에서 완전 재설치 후에도 동일한 0/20 실패가 재현됨을 확인했다. 이는 특정 Istio 릴리스의 일시적
+  버그가 아니라, 이 클러스터의 Cilium 구성(1.19.6, kube-proxy-replacement=true,
+  routing-mode=tunnel/VXLAN — ADR-0025에서 사전에 위험 조합으로 표시됨)과 Istio Ambient Waypoint
+  아키텍처 사이의 **버전 독립적인 근본 비호환**으로 당시에는 판단하고 조사를 종료했다. **이 결론은 다음날
+  (2026-07-30) 잘못된 것으로 밝혀졌다 — 아래 "최종 해결" 절 참고.** 당시에는 클러스터를 Waypoint
+  Gateway/라벨을 제거하고 순수 Ambient 상태로 복구했으며 SYNC_CHAIN 정상 동작을
   재확인했다(HTTP 200, 3/3). Phase 7은 이 상태로 최종 blocked 처리하고, Phase 8(병목 분석)은
   No-Mesh/Sidecar/Ambient 세 profile 데이터로 진행한다.
 
@@ -91,28 +94,76 @@ Ambient 위에 orchestrator-service 단일 hop으로 Waypoint proxy를 배치하
 | 버전 교체 재현 | Istio 1.30.3 → 1.29.6 완전 재설치 후 순수 Ambient 확인 → Waypoint 재구성 → 20회 배치 재시도 | 순수 Ambient는 정상(HTTP 200), Waypoint 경유는 **0/20 성공** — 1.30.3과 동일한 실패 재현 | 수동 curl 배치 (`success=0 fail=20`) |
 | 최종 복구 확인 | Waypoint 라벨/Gateway 제거 후 SYNC_CHAIN 재확인 (1.29.6 기준) | HTTP 200, 3/3 성공 | 수동 curl |
 
-## 실패와 판단
+## 실패와 판단 (해결됨 — 아래는 진단 경과의 기록)
 
 - 실패 내용: Waypoint를 통과하는 SYNC_CHAIN 요청이 항상 500으로 실패.
-- 원인: 미확정(도구로 특정 불가). TCP 연결은 성공하지만 HTTP 계층에서 즉시 리셋되는 패턴과 ztunnel 로그
-  부재로 미루어 Waypoint의 백엔드 연결(HBONE CONNECT 방식으로 추정)이 대상 Pod의 ambient 캡처 경로와
-  프로토콜 불일치를 일으키는 것으로 의심되나, 이 클러스터의 도구(kubectl, Envoy admin API, istioctl,
-  cilium-dbg)만으로는 정확한 근본 원인을 특정할 수 없었다.
-- 버전 독립성 확인으로 결론 강화: 동일 실패가 Istio 1.30.3과 1.29.6 양쪽에서 완전 재설치 후에도 그대로
-  재현됨을 확인했다. 두 개의 서로 다른 minor 버전에서 동일한 시그니처(TCP 성공, HTTP 즉시 리셋, 0/20)가
-  나온다는 것은 특정 Istio 릴리스의 회귀 버그가 아니라 이 클러스터의 Cilium 조합과 Ambient Waypoint
-  아키텍처 사이의 구조적 비호환일 가능성이 훨씬 크다는 뜻이다.
-- 해결 또는 보류 이유(최종): 근본 원인은 istioctl/cilium-dbg 수준의 진단으로는 특정할 수 없었고, 버전
-  교체로도 동일하게 재현되어 추가 재시도의 기대 수익이 낮다고 판단했다. 사용자와 상의해 이 항목을
-  **최종적으로 blocked 확정**하고, 이미 유효한 No-Mesh/Sidecar/Ambient 세 profile 데이터로 Phase 8을
-  진행하기로 했다. Waypoint는 L7 기능이 필요한 경로에서만 선택적으로 쓰는 구성요소라 프로젝트의 핵심
-  비교(No-Mesh vs Sidecar vs Ambient)에는 영향이 없다.
+- 최종 확인된 원인: `deploy/charts/meshperf/templates/networkpolicies.yaml`의 `orchestrator-service`
+  NetworkPolicy에서 waypoint pod로부터의 ingress 규칙이 포트 8080만 허용하고 15008(HBONE, waypoint→
+  backend 연결에 실제 사용되는 포트)을 빠뜨린 템플릿 버그. Cilium이 이 포트의 SYN을 정책 위반으로
+  드롭하고 있었다(`cilium monitor --type drop`으로 직접 확인). istioctl/Envoy admin API/cilium-dbg
+  수준의 진단으로는 발견하지 못했고, 패킷 레벨 캡처를 실행한 뒤에야 확인됐다.
+- 한때 "버전 독립적 구조적 비호환"으로 결론지었던 것은 틀린 추론이었다 — 자세한 경위는 아래 "최종 해결"
+  절의 "예전 결론이 틀렸던 이유"를 참고. NetworkPolicy는 Istio 재설치로 바뀌지 않는 리소스였으므로,
+  버전을 바꿔도 동일하게 실패한 것은 애초에 당연한 결과였다.
+- 해결: NetworkPolicy에 누락된 포트를 추가하고 재배포, 20/20·50/50 연속 성공과 Waypoint 자체 통계
+  (`rq_total`) 증가로 실제 트래픽 통과를 확인했다. Phase 7 정식 반복측정을 진행한다.
 
-## 다음 재개 지점 (참고용 — 현재는 재개 계획 없음)
+## 최종 해결 (2026-07-30)
 
-- 이 조사는 종료되었다. 향후 재개한다면 Cilium 쪽 로그(datapath 레벨 tcpdump, `cilium monitor`)나 Istio
-  업스트림 이슈 트래커 확인이 다음 단계가 될 것이나, 본 프로젝트 범위에서는 우선순위가 낮다.
+**사용자가 제시한 재검증 방법론(gateway 앱 connection pool 초기화, `istioctl ztunnel-config` 확인,
+`cilium monitor --type drop`을 통한 패킷 레벨 확인)을 그대로 적용해 재시도한 결과, 몇 분 만에 실제 원인을
+찾았다.**
+
+`cilium monitor --type drop`을 waypoint pod가 있는 노드에서 실행한 채로 SYNC_CHAIN 요청을 보내자, 다음과
+같은 로그가 즉시 잡혔다:
+
+```
+xx drop (Policy denied) flow ... identity 49325->10965: 10.244.2.165:43596 -> 10.244.2.39:15008 tcp SYN
+```
+
+**Cilium이 waypoint pod(identity 49325)에서 orchestrator-service pod(identity 10965)로 가는 15008(HBONE)
+포트 SYN 패킷을 NetworkPolicy 위반으로 실시간 드롭하고 있었다.** `orchestrator-service`의 NetworkPolicy를
+직접 열어보니 원인이 바로 보였다 — waypoint pod로부터의 ingress를 허용하는 규칙이 포트 **8080만** 열어뒀고
+15008(waypoint가 backend에 연결할 때 실제로 쓰는 HBONE 포트)이 빠져 있었다. 같은 파일의 바로 위
+규칙(gateway→orchestrator-service)은 8080과 15008을 둘 다 올바르게 열어뒀는데, waypoint→orchestrator-
+service 규칙만 15008이 누락된 단순한 템플릿 실수였다(`deploy/charts/meshperf/templates/networkpolicies.yaml`).
+
+포트를 추가하고 재배포하자 즉시 해결됐다 — 20회 배치 테스트 20/20 성공, 50회 연속 soak 테스트 50/50
+성공, 그리고 결정적으로 **Waypoint 자체의 Envoy 통계(`rq_total`)가 요청 수만큼 실제로 증가**하는 것을
+확인해 예전에 겪었던 "keep-alive 재사용에 의한 거짓 양성"이 아님을 검증했다.
+
+### 예전 결론("버전 독립적 근본 비호환")이 틀렸던 이유
+
+Istio를 1.30.3 → 1.29.6으로 완전히 재설치해도 동일하게 실패한다는 사실로부터 "Istio 버전과 무관한 깊은
+아키텍처 비호환"이라고 결론 내렸던 것은 **논리적 오류였다.** NetworkPolicy는 Kubernetes/Cilium 리소스이지
+Istio 설치의 일부가 아니다 — Istio를 완전히 재설치해도 Helm으로 관리되는 NetworkPolicy는 전혀 건드려지지
+않고 그대로 남아있었다. 즉 "버전을 바꿔도 실패가 재현된다"는 것은 "Istio 버전이 원인이 아니다"까지만
+증명하는 것이지, "이 클러스터의 근본적인 아키텍처 문제"라는 훨씬 강한 결론을 정당화하지 못한다. 재설치
+과정에서 **바뀌지 않은 것**(우리 자신의 Helm 차트가 관리하는 NetworkPolicy)을 의심했어야 했는데, 재설치로
+**바뀐 것**(Istio 자체)에만 집중해 그럴듯하지만 잘못된 결론에 도달했다. 이 프로젝트의 다른 곳에서는
+"Evidence 없는 결론 금지" 원칙을 잘 지켰지만, 이 경우는 "반증 실험 하나를 통과했다"는 것을 "가능한 다른
+모든 원인을 배제했다"로 착각한, 정직하게 기록해 둘 필요가 있는 실수다.
+
+### 왜 이전 진단들은 이걸 못 찾았는가
+
+- `istioctl proxy-config cluster`는 Envoy(waypoint)가 **어떻게 연결을 시도하도록 설정되어 있는지**만
+  보여준다 — 그 연결이 네트워크 레벨에서 실제로 차단되고 있는지는 보여주지 않는다. 설정이 "정상"으로
+  보인 것은 설정 자체는 실제로 정상이었기 때문이다(문제는 설정이 아니라 별도의 NetworkPolicy 리소스에
+  있었다).
+- `cilium-dbg endpoint list`에서 waypoint pod IP가 안 보였던 것은 별개의 관찰이었고(원인 미상으로 남음),
+  이 NetworkPolicy 문제와 직접 연결되는 단서는 아니었다.
+- Waypoint pod 안에서 실제 orchestrator pod로 평문 curl이 성공했던 것은, 그 테스트가 애초에 15008이 아닌
+  8080으로 직접 접속했기 때문이다(HBONE 캡슐화를 거치지 않는 경로) — 그래서 "네트워킹 자체는 정상"이라는
+  결론은 맞았지만, 정작 실패하는 경로(15008)와는 다른 경로를 테스트한 것이었다.
+- 패킷 레벨 캡처(`cilium monitor --type drop`)를 실행하기 전까지는 "어느 계층에서 무엇이 차단되는지"를
+  직접 볼 방법이 없었다 — Envoy 통계와 애플리케이션 로그만으로는 Cilium의 정책 판정 자체를 볼 수 없다.
+
+클러스터는 Waypoint 상태로 유지하고 Phase 7 정식 반복측정을 진행한다.
+
+## 다음 재개 지점
+
+- 이 항목은 해결됐다. 다음 단계는 nominal/high/near-saturation 세 조건에서 Phase 4~6과 동일한 수준(10~15회,
+  bootstrap CI 정밀도 게이트)의 정식 반복측정을 실행하는 것이다.
 - 필요한 파일: `deploy/environments/waypoint/values.yaml`(이미 작성됨), ADR-0026.
-- 주의할 상태/환경: 클러스터는 현재 순수 Ambient 상태(Istio 1.29.6)로 복구되어 있다(Waypoint Gateway
-  없음). 재시도 시 `helm upgrade meshperf ... -f deploy/environments/waypoint/values.yaml`과 동일한
-  Gateway 리소스 재생성이 필요하다.
+- 클러스터 상태: Istio 1.29.6, Ambient + Waypoint(`orchestrator-waypoint`) 활성화, NetworkPolicy 수정
+  적용 완료(Helm revision 27+).

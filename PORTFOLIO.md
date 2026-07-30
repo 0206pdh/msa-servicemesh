@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정, replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1(Sidecar mTLS DISABLE) 완료 — 가설 기각 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) 연결 문제 해결(NetworkPolicy 버그) · 정식 측정 예정, replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1(Sidecar mTLS DISABLE) 완료 — 가설 기각 · **시작일**: 2026-07-22
 
 ---
 
@@ -180,7 +180,7 @@ Experiment Runner (Python)
 |---|---|
 | 애플리케이션 | Java 25, Spring Boot 4.1, Gradle 9 Wrapper |
 | 플랫폼 | VMware Workstation 3-node Kubernetes 1.36 (kubeadm), Ubuntu 26.04 LTS, containerd |
-| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4, Istio 1.30.3 Sidecar+Ambient(ztunnel/istio-cni, Waypoint 추가 예정) |
+| 네트워크/Mesh | Cilium 1.19 (CNI+Gateway+Hubble), MetalLB 0.16 L2, Gateway API 1.4, Istio 1.29.6 Sidecar+Ambient+Waypoint(ztunnel/istio-cni) |
 | 관측성 | Prometheus, Grafana, Loki, Tempo, OpenTelemetry Collector |
 | 부하·검증 | k6 (CONSTANT_ARRIVAL_RATE), Python 측정 자동화(`experiments/`, unittest 기반 회귀 테스트) |
 | 배포 | Helm (profile별 values 분리), Docker/GHCR 이미지 배포 |
@@ -192,7 +192,7 @@ Experiment Runner (Python)
 | No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 완료 |
 | Sidecar | Pod마다 Envoy proxy 동반 (Istio 1.30.3) | ✅ Phase 5 완료 |
 | Ambient | Node 공유 ztunnel (L4) | ✅ Phase 6 고정 replica 완료, 확장 측정 잔여 |
-| Ambient + Waypoint | 선택적 L7 proxy 추가 | `[TODO: Phase 7]` |
+| Ambient + Waypoint | 선택적 L7 proxy 추가 | 🔄 연결 문제 해결, 정식 반복측정 진행 예정 |
 
 ---
 
@@ -207,7 +207,7 @@ Experiment Runner (Python)
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
-| 7 | Ambient + Waypoint 기준선 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
+| 7 | Ambient + Waypoint 기준선 | 🔄 연결 문제 해결됨(§6.5), 정식 반복측정 진행 예정 |
 | 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
 | 9 | 개선안별 단일 변수 실험 | 🔄 실험 1 완료(가설 기각, §6.8), 실험 2 진행 예정 |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
@@ -243,10 +243,10 @@ Experiment Runner (Python)
 - [x] Waypoint 배포 범위 결정 — 선택 경로(단일 hop) 우선 (ADR-0026)
 - [x] `istio-waypoint` GatewayClass 자동 생성과 Gateway 리소스로 Pod 자동 프로비저닝 확인
 - [x] gateway→waypoint 홉 NetworkPolicy 수정과 정상 동작 확인
-- [x] Istio 1.29.6으로 완전 재설치 후 재시도 — 동일하게 0/20 재현, 버전 독립적 비호환으로 확정
-- [ ] **waypoint→실제 backend pod 홉 연결 — blocked 최종 확정** (§6.5)
-- [ ] paired core 조건 반복측정 — 위 차단으로 미착수, 조사 종료
-- [ ] Phase 7 Evidence — blocked (최종)
+- [x] Istio 1.29.6으로 완전 재설치 후 재시도 — 당시 "버전 독립적 비호환"으로 판단했으나 이후 오류로 정정
+- [x] **waypoint→실제 backend pod 홉 연결 — 2026-07-30 해결** (§6.5, NetworkPolicy 포트 누락이 원인)
+- [ ] paired core 조건 반복측정 — 진행 예정
+- [ ] Phase 7 Evidence — 측정 진행 예정
 
 ---
 
@@ -381,7 +381,7 @@ Cilium(kube-proxy-replacement + VXLAN)과 Istio Ambient 조합은 사전에 위�
 
 전체 Evidence: [2026-07-29 canonical ambient baseline final](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md)
 
-### 6.5 Phase 7 Waypoint — blocked, 버전 독립적 비호환으로 최종 확정 (2026-07-29)
+### 6.5 Phase 7 Waypoint — 연결 문제 해결 (2026-07-29 ~ 2026-07-30)
 
 Ambient 위에 orchestrator-service 단일 hop만 Waypoint를 경유하도록 배포했다. Istio 1.30.3은
 `PILOT_ENABLE_AMBIENT=true`가 켜지면 `istio-waypoint` GatewayClass를 자동 생성해두므로, 별도 설치 없이
@@ -397,39 +397,45 @@ Envoy 관리자 API로 들여다보니 **TCP 연결 자체는 성공하는데(`c
 캡처 규칙을 우회하는 것 아닐까"라는 가설을 세우고, Waypoint Deployment에 `podAntiAffinity`를 직접 patch해
 다른 노드로 강제 이동시켜 재현해봤다 — **똑같은 실패가 그대로 재현**되어 이 가설은 기각됐다.
 
-**사용자가 "그래도 해결해보라"고 요청해서 한 단계 더 파고들었다.** `istioctl`을 새로 설치해 Waypoint의
-실제 xDS 설정을 직접 열어보니, 설정 자체(`ORIGINAL_DST` 타입, 포트를 15008로 강제 override, TLS 1.3 +
-SPIFFE 검증)는 정상이었다. 그런데 Waypoint Pod **안에서 직접** 실제 orchestrator Pod로 평문 curl을
-날려보니 즉시 성공했다 — 네트워킹과 NetworkPolicy 자체는 문제가 없다는 뜻이다. 동시에 `cilium-dbg
-endpoint list`에 Waypoint Pod의 IP가 아예 나타나지 않는 것도 발견했다(원인 불명). 그러다 클린하게
-재배포한 직후 5연속 성공을 관측해 "해결됐다"고 판단했는데, **Waypoint 자체의 요청 카운터는 그 "성공한"
-요청들에서도 전혀 움직이지 않았다.** 곧바로 20연속 재시도했더니 **0/20 성공**으로 돌아갔다 — 처음의
-성공은 Waypoint 설정 이전에 gateway 앱이 이미 맺어둔 연결 풀(keep-alive)이 우연히 재사용되며 Waypoint를
-완전히 우회한 거짓 양성이었다.
+**한 단계 더 파고들었다.** `istioctl`을 새로 설치해 Waypoint의 실제 xDS 설정을 직접 열어보니, 설정
+자체(`ORIGINAL_DST` 타입, 포트를 15008로 강제 override, TLS 1.3 + SPIFFE 검증)는 정상이었다. 그런데
+Waypoint Pod **안에서 직접** 실제 orchestrator Pod로 평문 curl을 날려보니 즉시 성공했다 — 다만 이건
+포트 8080으로 직접 붙인 테스트라, 실제로 실패하던 경로(15008)와는 다른 경로였다는 게 나중에 밝혀진다.
+동시에 `cilium-dbg endpoint list`에 Waypoint Pod의 IP가 아예 나타나지 않는 것도 발견했다(원인은 끝내
+못 찾음). 그러다 클린하게 재배포한 직후 5연속 성공을 관측해 "해결됐다"고 판단했는데, **Waypoint
+자체의 요청 카운터는 그 "성공한" 요청들에서도 전혀 움직이지 않았다.** 곧바로 20연속 재시도했더니
+**0/20 성공**으로 돌아갔다 — 처음의 성공은 Waypoint 설정 이전에 gateway 앱이 이미 맺어둔 연결 풀
+(keep-alive)이 우연히 재사용되며 Waypoint를 완전히 우회한 거짓 양성이었다.
 
-`istioctl`까지 동원한 심화 진단에도 재현성이 극히 불안정하고 근본 원인을 확정하지 못했다 — 이 클러스터의
-특정 버전 조합(Cilium 1.19.6 + Istio ambient waypoint 1.30.3)에서 실제로 존재하는 버그이거나 깊은
-호환성 문제로 판단되는 시점에서, 사용자가 "그럼 Istio 버전을 바꿔서 재설치도 해보자"고 요청했다.
+**Istio 버전을 완전히 바꿔서(1.30.3 → 1.29.6) 재설치해도 똑같이 재현됐다.** ztunnel/istio-cni/istiod/
+istio-base를 전부 지우고 재설치했는데도 동일한 실패 시그니처와 0/20 결과가 그대로 나왔다. 여기서
+**"서로 다른 두 버전에서 재현되니 특정 릴리스 버그가 아니라 이 클러스터의 근본적인 아키텍처 비호환"**
+이라고 결론짓고 조사를 종료했었다 — 하지만 이 결론은 **다음 날 틀린 것으로 밝혀졌다.**
 
-**Istio 1.30.3을 완전히 제거하고 1.29.6으로 재설치해 처음부터 다시 시도했다.** ztunnel/istio-cni/istiod/
-istio-base를 전부 지우고 동일 자원 설정으로 재설치하면서 `PILOT_ENABLE_AMBIENT=true`도 처음부터 켰다.
-재설치 직후 **순수 Ambient SYNC_CHAIN 트래픽은 정상 동작**함을 먼저 확인한 뒤(HTTP 200, 3-hop, checksum
-일치), Waypoint Gateway와 NetworkPolicy 수정을 동일하게 재적용했다. Waypoint Pod는 `1/1 Running`으로
-정상 기동했지만, 첫 요청부터 **완전히 동일한 실패 시그니처**(`HTTP 500`, "upstream connect error...
-connection termination")가 재현됐다. 거짓 양성을 이미 한 번 겪은 뒤였으므로 단일 샘플을 믿지 않고 곧바로
-20회 배치 요청으로 재확인했고, 결과는 **`success=0 fail=20`** — 1.30.3에서 관측한 것과 정확히 같았다.
+**실제 원인은 훨씬 단순했다.** 다시 파고들면서 이번엔 애플리케이션 로그나 Envoy 통계 대신 **패킷 레벨을
+직접 봤다** — `cilium monitor --type drop`을 waypoint pod가 있는 노드에서 돌려놓고 요청을 보내자,
+`drop (Policy denied) ... 10.244.2.165:xxxxx -> 10.244.2.39:15008 tcp SYN`이라는 로그가 즉시 잡혔다.
+**Cilium이 waypoint→backend HBONE 포트(15008)의 SYN 패킷을 NetworkPolicy 위반으로 계속 드롭하고
+있었던 것이다.** `orchestrator-service`의 NetworkPolicy를 열어보니, waypoint pod로부터의 ingress를
+허용하는 규칙이 포트 **8080만** 열어두고 15008을 빠뜨린 단순한 템플릿 실수였다 — 바로 위에 있는
+gateway→orchestrator-service 규칙은 두 포트를 다 올바르게 열어뒀는데, waypoint 관련 규칙 하나만
+포트가 누락돼 있었다. 포트를 추가하고 재배포하자 20/20, 이어서 50/50 연속 성공했고, **Waypoint 자체의
+`rq_total` 카운터가 요청 수만큼 실제로 증가**하는 것까지 확인해 거짓 양성이 아님을 검증했다.
 
-**서로 다른 두 Istio minor 버전에서 완전 재설치 후에도 동일한 0/20 실패가 나온다는 것은, 특정 릴리스의
-회귀 버그가 아니라 이 클러스터의 Cilium 구성(kube-proxy-replacement + VXLAN tunnel 모드 — ADR-0025에서
-사전에 위험 조합으로 표시해둔 조합)과 Istio Ambient Waypoint 아키텍처 사이의 버전 독립적인 근본
-비호환이라는 뜻이다.** 이 결과로 조사를 최종 종료하기로 판단했다. 지금까지 고친 두 건(probe 캡처,
-NetworkPolicy 포트 누락)은 명확한 원인과 안전한 수정이 있었지만, waypoint→backend 홉 문제는 두 버전
-모두에서 재현되는 것으로 봐서 애플리케이션이나 설정의 문제가 아니라 이 인프라 스택 자체의 한계로 규정하는
-것이 더 정직한 결론이다. 클러스터는 Waypoint 라우팅을 완전히 제거하고 순수 Ambient 상태(Istio 1.29.6)로
-정상 복구했다(SYNC_CHAIN E2E 재확인 완료, HTTP 200 3/3). Phase 8(병목 분석)은 이미 확보한 No-Mesh/
-Sidecar/Ambient 세 profile 데이터로 진행한다.
+**"버전이 달라도 똑같이 실패한다"는 관찰 자체는 맞았지만, 거기서 내린 결론이 틀렸었다.** NetworkPolicy는
+Kubernetes/Cilium 리소스이지 Istio 설치의 일부가 아니다 — Istio를 통째로 재설치해도 Helm이 관리하는
+NetworkPolicy는 전혀 건드려지지 않고 그대로 남아있었다. 그러니 "버전을 바꿔도 실패가 재현된다"는 것은
+"Istio 버전이 원인이 아니다"까지만 증명하는 것이었는데, 그걸 "이 클러스터의 근본적인 아키텍처 문제"라는
+훨씬 강한 결론으로 확대 해석한 것이 실수였다. 재설치 과정에서 **바뀌지 않은 것**(우리 자신의 Helm 차트가
+관리하는 NetworkPolicy)을 의심했어야 했는데, 재설치로 **바뀐 것**(Istio 자체)에만 집중한 것이다. 이
+프로젝트 전체가 "Evidence 없는 결론 금지"를 원칙으로 삼고 있지만, 이 경우는 "반증 실험 하나를 통과했다"를
+"가능한 다른 원인을 전부 배제했다"로 착각한 사례였고, 정직하게 기록해 둔다.
 
-상세 진단 기록: [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
+Waypoint 프록시 자체의 자원 수집(`resources.waypoint`)도 이번에 처음 구현했다 — 이전까지는 항상
+`null`로 비어 있었다. 이제 Sidecar와 같은 방식(request당 정규화)으로 CPU/메모리를 측정할 수 있고, 정식
+반복측정을 진행할 준비가 됐다.
+
+상세 진단 기록(진단 과정 전체와 오류 정정 경위 포함): [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
 
 ### 6.6 Replica 확장 방향성 연구 — 완료 (2026-07-29)
 
@@ -631,12 +637,14 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
     `proxy-config`로 실제 xDS 설정을 직접 열어보는 쪽을 택했다. 결과적으로 근본 원인 자체는 못 찾았지만,
     "설정은 정상인데 실제 동작이 다르다"는 걸 확인함으로써 문제의 성격(설정 실수가 아니라 버전 조합의
     깊은 호환성 문제)을 훨씬 정확하게 좁혔다.
-16. **"원인 불명"에서 멈추지 않고 반증 가능한 가설로 전환해 결론의 신뢰도를 높임**: 특정 Istio 1.30.3
-    버전의 버그일 가능성을 배제하지 못한 상태에서 조사를 접는 대신, 완전히 다른 minor 버전(1.29.6)으로
-    처음부터 재설치해 동일 조건에서 재현을 시도했다. 두 버전 모두 완전 재설치 후 정확히 같은 실패
-    시그니처(0/20, TCP 성공/HTTP 즉시 리셋)가 나온 것을 확인함으로써, "특정 릴리스의 버그"라는 약한
-    가설을 "이 클러스터 스택 자체의 구조적 비호환"이라는 훨씬 강한 결론으로 승격시켰다 — 확인되지 않은
-    가설로 결론을 내리기보다, 반증 실험을 한 번 더 돌려 결론의 근거를 넓힌 사례다.
+16. **반증 실험을 설계했지만, 그 결과를 과잉 해석한 실수를 그대로 기록함**: 특정 Istio 1.30.3 버전의
+    버그일 가능성을 배제하려고 완전히 다른 minor 버전(1.29.6)으로 재설치해 재현을 시도한 것 자체는 합리적
+    설계였다. 문제는 그 결과("두 버전 모두 동일하게 실패")의 해석이었다 — 이걸 "특정 릴리스 버그가
+    아니다"까지만 결론짓지 않고 "이 클러스터 스택 자체의 근본적인 아키텍처 비호환"이라는 훨씬 강한
+    주장으로 확대했다. 실제로는 NetworkPolicy(Istio 재설치로 전혀 바뀌지 않는 리소스)의 단순한 포트
+    누락이 원인이었다(§6.5, 18번 항목). "재현 실험 하나를 통과했다"를 "다른 가능한 원인을 전부
+    배제했다"로 착각한 이 실수를, 나중에 발견한 뒤 숨기지 않고 정정 경위까지 그대로 남겼다 — 실수 자체
+    보다 실수를 어떻게 다뤘는지가 이 프로젝트의 원칙("Evidence 없는 결론 금지")을 더 잘 보여준다.
 17. **자기 자신의 결론도 다시 검증해서 틀린 부분을 바로잡음**: Phase 8 시간축 상관 분석에서 처음엔
     "관측 스택 전체가 24시간 retention이라 다 사라졌다"고 결론지었다. 그런데 이 결론을 재검증하는
     과정에서 Loki 로그를 조회할 때 잘못된 라벨 이름(`namespace`)을 써서 실제로 존재하는 데이터를 "없다"고
@@ -647,6 +655,14 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
     검증한 사례다. Prometheus/Tempo는 반대로 재검증 결과 원래 결론(진짜로 사라짐)이 맞다는 것도 실제
     trace ID 조회로 재확인했다 — 이 프로젝트 전체를 관통하는 "Evidence 없는 결론 금지" 원칙을 자기 자신의
     이전 결론 앞에서도 그대로 적용한 사례다.
+18. **"blocked, 조사 종료"로 닫아둔 문제를 다시 열어서 실제로 해결함**: Waypoint 문제를 한 번 "버전
+    독립적 비호환"으로 최종 결론짓고 넘어갔지만, 최종 벤치마크 workload별 비교를 완성하려면 Phase 7이
+    필요하다는 판단에 따라 다시 파고들었다. 이번엔 애플리케이션 로그나 Envoy 통계 대신 처음으로
+    `cilium monitor --type drop`을 써서 패킷 레벨을 직접 봤고, 몇 분 만에 "Cilium이 15008 포트를
+    정책 위반으로 드롭하고 있다"는 결정적 증거를 잡았다. 원인은 우리 자신의 Helm 차트 NetworkPolicy
+    템플릿의 포트 누락이라는, 며칠간의 진단 끝에는 허무할 만큼 단순한 설정 실수였다. 도구를 한 단계 더
+    깊은 계층(설정 조회 → 패킷 캡처)으로 바꾸자마자 몇 달째 안 보이던 원인이 바로 보였다는 것 자체가,
+    "안 보인다"와 "없다"를 구분해야 한다는 이 프로젝트의 원칙을 실제로 증명한 사례다.
 
 `[TODO: Phase 9 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
@@ -658,7 +674,7 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 |---|---|---|
 | 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
-| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
+| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🔄 연결 문제 해결됨(§6.5), 정식 반복측정 진행 예정 |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
 | 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | 🔄 실험 1 완료(§6.8), 실험 2 진행 예정 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
@@ -714,7 +730,7 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 | No-Mesh Baseline 최종 Evidence | [docs/evidence/performance/2026-07-25-canonical-baseline-final.md](docs/evidence/performance/2026-07-25-canonical-baseline-final.md) |
 | Sidecar Baseline 최종 Evidence | [docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md) |
 | Ambient Baseline 최종 Evidence | [docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md) |
-| Waypoint blocked 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
+| Waypoint 진단·해결 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
 | Replica-scaling 방향성 연구 Evidence | [docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md) |
 | Phase 8 profile 간 통계 비교 Evidence | [docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
 | Phase 9 mTLS DISABLE 실험 결정 | [ADR-0028](docs/decisions/0028-phase9-sidecar-mtls-disable-experiment.md) |

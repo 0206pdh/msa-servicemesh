@@ -5,11 +5,13 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 9 진행 중 — 개선 실험 1(Sidecar mTLS DISABLE, ADR-0028) 완료: 가설 기각(mTLS는
-  network-bytes 오버헤드의 ~3%만 설명), latency는 유의하게 악화됐으나 Istio 버전 confound로 확정 불가.
-  실험 2(ztunnel latency 정식 확인)·실험 3(Phase 8에서 이미 확인된 부정 결과, 신규 실험 불필요) 남음
-- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 1 replica)로 복구됨
-- Status: phase-9-experiment-1-done
+- Overall Phase: **Phase 7 Waypoint 해결됨(2026-07-30)** — NetworkPolicy 템플릿 버그(HBONE 15008 포트
+  누락)가 근본 원인이었음을 확인·수정. 예전의 "버전 독립적 비호환" 결론은 정정됨. 정식 반복측정 착수 예정.
+  Phase 9는 개선 실험 1(Sidecar mTLS DISABLE, ADR-0028) 완료: 가설 기각. 실험 2(Ambient replica=4 정식
+  확인)는 Phase 7 재작업을 위해 중단, 나중에 재개 예정
+- Infrastructure Step: 클러스터는 Ambient + Waypoint 활성화 상태(Istio 1.29.6, orchestrator-service 1
+  replica, `orchestrator-waypoint` Gateway 정상 동작 확인됨, Helm revision 27+)
+- Status: phase-7-resolved-formal-measurement-pending
 - Last updated: 2026-07-30
 
 ## 완료된 기준점
@@ -82,13 +84,17 @@
 - [x] Waypoint 배포 범위 결정 (ADR-0026, 선택 경로/단일 hop)
 - [x] `istio-waypoint` GatewayClass 자동 생성과 Gateway 리소스로 Waypoint Pod 프로비저닝 확인
 - [x] gateway→waypoint 홉 NetworkPolicy 수정(HBONE 15008)과 정상 동작 확인
-- [ ] **waypoint→실제 backend pod 홉이 원인 불명으로 항상 실패 — Phase 7 blocked** (`phase-07-p1-waypoint-blocked` 참고, 같은 노드 가설은 patch로 재현·기각함)
-- [x] 클러스터를 순수 Ambient 상태로 복구 (Waypoint 리소스 제거, SYNC_CHAIN 정상 동작 재확인)
+- [x] **waypoint→실제 backend pod 홉 연결 — 2026-07-30 해결**: `orchestrator-service` NetworkPolicy의
+      waypoint ingress 규칙이 HBONE 15008 포트를 빠뜨려 Cilium이 SYN을 drop하고 있었다(`cilium monitor
+      --type drop`으로 확인). 포트 추가 후 20/20·50/50 성공, rq_total 증가로 실제 트래픽 통과 검증
+      (`phase-07-p1-waypoint-blocked`의 "최종 해결" 절 참고)
+- [x] 클러스터를 순수 Ambient 상태로 복구했다가, NetworkPolicy 수정 후 Waypoint를 다시 활성화(현재 상태)
 - [x] Replica 확장 방향성 연구 완료 (ADR-0027): orchestrator-service 1/2/4 replica × Sidecar/Ambient × 3회 = 18 run, 전부 성공
 - [x] 발견: Sidecar 메모리는 replica 수에 선형 비례(120→173MiB), Ambient/ztunnel 메모리는 거의 불변(15.8→16.1MiB) — 가설 1 방향과 일치
 - [x] 발견: Ambient latency가 replica 증가에 따라 뚜렷이 악화(p99 51→99.5ms, 방향성 데이터). Sidecar는 오히려 소폭 개선(부하분산 효과로 추정)
 - [x] Istio 1.30.3 → 1.29.6 완전 재설치 후 Waypoint 재시도: 순수 Ambient는 정상, Waypoint 경유는 동일하게
-      0/20 재현 → 버전 독립적 근본 비호환으로 최종 판단, Phase 7 조사 종료(`phase-07-p1-waypoint-blocked` 최종 갱신)
+      0/20 재현 → 당시 "버전 독립적 근본 비호환"으로 판단했으나, 이는 **틀린 결론이었음이 2026-07-30에
+      밝혀짐** (실제 원인은 NetworkPolicy 템플릿 버그, Istio 재설치로는 바뀌지 않는 리소스였음)
 - [x] 클러스터를 순수 Ambient 상태(Istio 1.29.6)로 재복구, SYNC_CHAIN 정상 동작(HTTP 200, 3/3) 재확인
 - [x] `experiments/compare_profiles.py` 구현: 독립 2-표본 bootstrap 차이 검정(medium(B)-median(A), 95% CI).
       `analysis.py`의 valid-run 필터링 로직을 `collect_valid_runs()`로 분리해 재사용(기존 24개 테스트 회귀 없음 확인)
@@ -120,11 +126,16 @@
 
 ## 다음 작업
 
-1. Phase 9 실험 2: ztunnel 공유 프록시 latency 저하 가설을 정식 10~15회 반복으로 확인한다(현재는
-   replica-scaling 방향성 연구의 3회 반복 데이터만 있음). Ambient profile로 전환 필요.
-2. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
+1. **Phase 7 Waypoint 정식 반복측정**: nominal/high/near-saturation 세 조건, 10~15회, bootstrap CI
+   정밀도 게이트(Phase 4~6과 동일 기준). `resources.waypoint` 자원 수집이 오늘 구현됐으므로 Sidecar와
+   비교 가능한 per-request CPU/메모리 데이터를 함께 얻는다.
+2. Phase 7 완료 후 Phase 9 실험 2(Ambient replica=4, 중단했던 것) 재개: orchestrator-service를 다시
+   Ambient(Waypoint 없이) + replica=4로 전환해야 한다.
+3. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
    부정 결과이므로 신규 실험이 필요한지 재검토 — 불필요하다고 결론 나면 Phase 9는 실험 1·2로 마무리한다.
-3. 실험 2 이후 Phase 9 결론(validated/rejected)을 종합하고 Phase 10(회복탄력성)으로 진행한다.
+4. Phase 8의 3-profile 비교를 4-profile(Waypoint 포함)로 확장할지 검토 — Waypoint는 단일 hop 선택 경로
+   구성이라 다른 세 profile과 직접적인 apples-to-apples 비교는 제한적일 수 있음을 감안한다.
+5. 위 작업 종합 후 Phase 10(회복탄력성)으로 진행한다.
 
 ## 현재 한계
 
@@ -133,11 +144,11 @@
 - nominal(8 RPS) 조건은 No Mesh에서 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
 - Sidecar profile은 세 조건 모두 15회 상한에도 latency 정밀도가 수렴하지 않았다(No Mesh보다 CI가 넓음). No-Mesh 대비 예비 비교(Evidence 문서 참고)는 방향성 참고용일 뿐이며, 정식 profile 간 통계 비교 도구는 아직 없다(Phase 8에서 구현 예정).
 - Ambient는 high 조건만 15회 상한에도 p99가 수렴하지 않았다(세 profile 중 가장 넓은 단일 미달 폭, 10.00ms).
-- Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint)도 같은 제약을 받을 것으로 예상한다.
+- Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint) 정식 반복측정에서도 같은 제약을 받을 것으로 예상하며, 측정 중 확인이 필요하다.
 - **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
 - kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
 - **Prometheus/Tempo는 24h retention이 실제로 강제되고 있어 Phase 4~7 run들의 원본 metric/trace는 이미 만료돼 다시 조회할 수 없다**(Prometheus는 자체 TSDB retention, Tempo는 살아있는 compactor로 확인). Runner가 저장하는 `raw/prometheus-window.json`도 구간 전체 집계 스칼라값일 뿐 실제 시계열이 아니다. 반면 **Loki(로그)는 `retention_period: 24h`가 설정만 돼 있을 뿐 compactor/retention_enabled가 없어 실제로는 강제되지 않는다** — 2026-07-23 시점 로그도 여전히 조회 가능함을 직접 확인했다. 다만 확인해보니 애플리케이션이 lifecycle/error 로그만 남기고 요청 단위 로그를 남기지 않아, 로그가 남아있어도 시간축 상관 분석에 쓸 만한 내용은 없었다(`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`). 향후 시간축 상관 분석이 필요한 실험은 run 종료 직후(24h 이내) metric/trace를 별도로 조회하거나 Runner에 `query_range` 캡처를 추가해야 하고, 로그 기반 분석을 쓰려면 애플리케이션 로깅 자체를 더 상세하게 바꿔야 한다.
-- **Phase 7(Waypoint)은 최종 blocked로 조사가 종료됐다** — orchestrator-service 단일 hop 구성에서 gateway→waypoint 홉은 성공하지만 waypoint→실제 backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 같은 노드 배치 가설은 podAntiAffinity로 재현·기각했다. Istio 1.30.3→1.29.6 완전 재설치 후에도 동일하게 0/20 재현되어, 특정 버전의 버그가 아닌 이 클러스터의 Cilium 구성과 Ambient Waypoint 간 버전 독립적 근본 비호환으로 최종 판단했다. Phase 8은 Waypoint 없이 3개 profile로 진행한다.
+- **Phase 7(Waypoint)은 2026-07-30에 해결됐다** — 근본 원인은 `orchestrator-service` NetworkPolicy의 waypoint ingress 규칙이 HBONE 포트(15008)를 빠뜨린 템플릿 버그였다. `cilium monitor --type drop`으로 Cilium이 이 포트의 SYN을 정책 위반으로 드롭하는 것을 직접 확인했다. 이전에 "Istio 버전과 무관한 근본 비호환"으로 내렸던 결론은 틀린 추론이었다 — NetworkPolicy는 Istio 재설치로 바뀌지 않는 리소스이므로, 버전을 바꿔도 같은 실패가 재현된 것은 애초에 당연한 결과였다. 포트 추가 후 20/20·50/50 연속 성공, Waypoint 자체 rq_total 증가로 실제 트래픽 통과를 검증했다. Phase 8의 3-profile 비교 결론 자체는 Waypoint와 무관하므로 그대로 유효하다.
 - VM inventory, MAC과 DMI UUID 원본 및 고유성을 확인했다.
 - dirty-tree dry-run은 telemetry completeness를 통과했지만 성능 Evidence로 사용하지 않는다.
 - 운영 credential은 저장하지 않고 SSH key와 로컬 kubeconfig를 사용한다.
@@ -209,6 +220,19 @@
   버전 confound가 있어 확정하지 않음(사용자 지시로 같은 버전 대조군 측정은 중단)
 - Wire-level mTLS 검증: `istioctl proxy-config listener`로 DISABLE 시 inbound listener에 tlsContext 없음 확인
 - Git: Runner 시계열 캡처 `aaa5a56`, ADR-0028 confound 기록 `1b0ba9e`, Phase 9 Evidence 커밋 예정
+- Phase 9 실험 2(Ambient replica=4) 진행 중 사용자 지시로 중단, orchestrator-service 1 replica로 원복
+- Waypoint 재진단: `cilium monitor --type drop`으로 waypoint(identity 49325)→orchestrator-service
+  (identity 10965) 15008 SYN이 `Policy denied`로 drop되는 것을 직접 확인 (Envoy/istioctl/cilium-dbg
+  수준 진단으로는 안 보이던 것)
+- 근본 원인 확정: `deploy/charts/meshperf/templates/networkpolicies.yaml`의 orchestrator-service
+  ingress 규칙(waypoint from)이 포트 8080만 허용, 15008 누락. 포트 추가 후 20/20, 50/50 연속 성공,
+  Waypoint rq_total 증가로 실제 트래픽 통과 검증(거짓 양성 아님)
+- Runner에 Waypoint 자원 수집 추가(`window_timeseries`/`_summary`가 `resources.waypoint`를 항상
+  `null`로 두던 것을 실제 쿼리로 교체), sidecar 쿼리에서 waypoint pod 제외해 이중 집계 방지
+- Python 전체 unittest: 36 passed
+- Git: NetworkPolicy 수정 + Waypoint 자원 수집 `6711f53`
+- 문서 정정: 이전 "버전 독립적 근본 비호환" 결론을 오류로 정정 — `phase-07-p1-waypoint-blocked`,
+  ADR-0026 amendment, 이 파일에 모두 반영
 
 ## 재개 절차
 

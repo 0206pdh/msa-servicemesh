@@ -64,3 +64,13 @@ waypoint` 슬롯에 request당 정규화한 CPU-seconds/메모리를 기록한�
 - Waypoint Gateway 생성 후 `kubectl get gateway`와 자동 생성된 Deployment가 `Ready`인지 확인한다.
 - orchestrator-service로 가는 실제 트래픽이 Waypoint를 경유하는지 Waypoint Pod의 access log로 직접
   확인한 뒤에만 정식 측정을 시작한다(Sidecar/Ambient 때와 동일한 검증 기준).
+
+## Amendment (2026-07-30): 최초 연결 실패의 원인과 해결
+
+이 ADR을 쓴 직후 waypoint→backend 홉이 항상 실패하는 문제가 발생해 Phase 7이 한동안 blocked 상태였다.
+원인은 이 ADR 자체나 Istio 버전과 무관했다 — `deploy/charts/meshperf/templates/networkpolicies.yaml`의
+`orchestrator-service` NetworkPolicy가 waypoint pod로부터의 ingress를 포트 8080만 허용하고 실제 waypoint→
+backend 연결에 쓰이는 HBONE 포트(15008, 이 ADR의 `resources.waypoint` 설계와는 별개 항목)를 빠뜨린
+단순한 템플릿 버그였다. `cilium monitor --type drop`으로 확인해 수정했다. 자세한 진단 경위와 "왜 처음엔
+Istio 버전 문제로 오판했는지"는 [phase-07-p1-waypoint-blocked 체크포인트](../checkpoints/phase-07-p1-waypoint-blocked.md)의
+"최종 해결" 절에 기록되어 있다. 이 ADR의 배포 범위·자원 모델 결정 자체는 그대로 유효하다.

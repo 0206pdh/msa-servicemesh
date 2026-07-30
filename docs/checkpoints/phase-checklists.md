@@ -72,13 +72,14 @@
 ## Phase 7 — Waypoint
 
 - [x] 선택 경로(단일 hop) 배포 범위 결정 (ADR-0026)
-- [ ] **Waypoint 통과 검증 — 최종 blocked (확정)**: gateway→waypoint 홉은 성공하지만 waypoint→실제
-      backend pod 홉이 항상 TCP 연결 후 HTTP 즉시 리셋으로 실패한다. 노드 분리로도 재현되어 원인 불명.
-      Istio 1.30.3 → 1.29.6 완전 재설치 후에도 동일하게 0/20 재현되어 특정 버전 버그가 아닌
-      Cilium+Ambient Waypoint 간 버전 독립적 비호환으로 최종 판단 (`phase-07-p1-waypoint-blocked` 참고)
-- [ ] replica/queue/saturation 측정 — 위 차단으로 미착수
-- [ ] 적용 범위별 비용 Evidence — 미착수
-- [ ] Phase 7 Evidence — **blocked (최종 확정, 조사 종료)**, Phase 8은 No-Mesh/Sidecar/Ambient 세 profile로 진행
+- [x] **Waypoint 통과 검증 — 2026-07-30 해결**: 원인은 `orchestrator-service` NetworkPolicy의 waypoint
+      ingress 규칙이 HBONE 포트(15008)를 빠뜨린 템플릿 버그였다(`cilium monitor --type drop`으로 확인).
+      한때 "버전 독립적 비호환"으로 오판했던 것은 잘못된 추론이었음을 확인·정정했다
+      (`phase-07-p1-waypoint-blocked`의 "최종 해결" 절 참고). 20/20·50/50 soak 테스트와 Waypoint 자체
+      rq_total 증가로 실제 트래픽 통과를 검증했다
+- [ ] replica/queue/saturation 측정 — 정식 반복측정 진행 예정
+- [ ] 적용 범위별 비용 Evidence — Waypoint 자원 수집 구현 완료(`resources.waypoint`), 측정 진행 예정
+- [ ] Phase 7 Evidence — **진행 중**, nominal/high/near-saturation 정식 반복측정 착수
 
 ## Phase 8 — 병목 분석
 
