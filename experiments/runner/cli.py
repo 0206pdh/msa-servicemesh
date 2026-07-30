@@ -268,6 +268,7 @@ class Runner:
         application_resource = empty_resource
         sidecar_resource = None
         ztunnel_resource = None
+        waypoint_resource = None
         node_resource = empty_resource
         if window_snapshot:
             application_resource = {"cpuCoreSeconds": window_snapshot.get("applicationCpuCoreSeconds"),
@@ -286,13 +287,19 @@ class Runner:
                                     "memoryPeakBytes": window_snapshot.get("ztunnelMemoryPeakBytes"),
                                     "cpuThrottledPeriods": window_snapshot.get("ztunnelCpuThrottledPeriods"),
                                     "attribution": "cluster-wide-shared-not-per-request"}
+            if window_snapshot.get("waypointCpuCoreSeconds") is not None:
+                waypoint_resource = {"cpuCoreSeconds": window_snapshot.get("waypointCpuCoreSeconds"),
+                                     "cpuPeakCores": window_snapshot.get("waypointCpuPeakCores"),
+                                     "memoryPeakBytes": window_snapshot.get("waypointMemoryPeakBytes"),
+                                     "cpuThrottledPeriods": window_snapshot.get("waypointCpuThrottledPeriods")}
             node_resource = {**empty_resource, "cpuPeakPercent": window_snapshot.get("nodeCpuPeakPercent"),
                              "memoryMinimumByNode": window_snapshot.get("nodeMemoryMinimum")}
         return {"runId": spec["runId"], "profile": spec["profile"], "scenario": spec["scenario"], "status": status,
                 "window": {"start": started, "end": ended}, "sampleCount": sample_count,
                 "metrics": {"throughputRps": requests.get("rate"), "errorRate": failed,
                             "latencyMs": {"p50": values.get("med"), "p95": values.get("p(95)"), "p99": values.get("p(99)")}},
-                "resources": {"application": application_resource, "sidecar": sidecar_resource, "ztunnel": ztunnel_resource, "waypoint": None,
+                "resources": {"application": application_resource, "sidecar": sidecar_resource, "ztunnel": ztunnel_resource,
+                              "waypoint": waypoint_resource,
                               "node": node_resource, "loadGenerator": {"cpuPeakPercent": load_cpu_peak,
                               "sampleCount": len(load_samples)}},
                 "artifacts": {"manifest": "manifest.json", "raw": "raw/", "queries": {}}, "invalidatingFactors": invalid}

@@ -219,20 +219,29 @@ class KubernetesAdapter:
                 f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
                 f'container!="",container!="POD",container!="istio-proxy",container!="istio-init"}}))[{window}:15s])'
             )),
+            # Excludes the waypoint pod: it also runs a container literally named
+            # "istio-proxy" (same Envoy image as a sidecar), but it's a standalone
+            # gateway-style pod, not a per-app-pod sidecar -- counted separately
+            # below as waypointCpuCoreSeconds so a Waypoint-profile run doesn't
+            # double-count the same container under both labels.
             "sidecarCpuCoreSeconds": self.scalar(self.prometheus_query(
                 f'sum(increase(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'pod!~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
                 f'container="istio-proxy"}}[{window}]))'
             )),
             "sidecarCpuPeakCores": self.scalar(self.prometheus_query(
                 f'max_over_time((sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'pod!~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
                 f'container="istio-proxy"}}[30s])))[{window}:15s])'
             )),
             "sidecarMemoryPeakBytes": self.scalar(self.prometheus_query(
                 f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
+                f'pod!~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
                 f'container="istio-proxy"}}))[{window}:15s])'
             )),
             "sidecarCpuThrottledPeriods": self.scalar(self.prometheus_query(
                 f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="{self.namespace}",'
+                f'pod!~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
                 f'container="istio-proxy"}}[{window}]))'
             )),
             # ztunnel is a per-node DaemonSet shared by every ambient-enrolled pod on
@@ -254,6 +263,29 @@ class KubernetesAdapter:
             "ztunnelCpuThrottledPeriods": self.scalar(self.prometheus_query(
                 f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="istio-system",'
                 f'pod=~"ztunnel-.*",container="istio-proxy"}}[{window}]))'
+            )),
+            # Waypoint is scoped to a single service (ADR-0026), so unlike ztunnel it is a
+            # per-pod proxy attributable to this experiment alone -- normalized per-request
+            # like the sidecar, not treated as a cluster-wide shared cost.
+            "waypointCpuCoreSeconds": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'pod=~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
+                f'container="istio-proxy"}}[{window}]))'
+            )),
+            "waypointCpuPeakCores": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(rate(container_cpu_usage_seconds_total{{namespace="{self.namespace}",'
+                f'pod=~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
+                f'container="istio-proxy"}}[30s])))[{window}:15s])'
+            )),
+            "waypointMemoryPeakBytes": self.scalar(self.prometheus_query(
+                f'max_over_time((sum(container_memory_working_set_bytes{{namespace="{self.namespace}",'
+                f'pod=~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
+                f'container="istio-proxy"}}))[{window}:15s])'
+            )),
+            "waypointCpuThrottledPeriods": self.scalar(self.prometheus_query(
+                f'sum(increase(container_cpu_cfs_throttled_periods_total{{namespace="{self.namespace}",'
+                f'pod=~"{self.config.get("waypointPodPrefix", "orchestrator-waypoint")}-.*",'
+                f'container="istio-proxy"}}[{window}]))'
             )),
             "networkRxBytes": self.scalar(self.prometheus_query(
                 f'sum(increase(container_network_receive_bytes_total{{namespace="{self.namespace}"}}[{window}]))'
@@ -291,6 +323,8 @@ class KubernetesAdapter:
             factors.append("PROXY_CPU_THROTTLED")
         if (snapshot.get("ztunnelCpuThrottledPeriods") or 0) > 0:
             factors.append("ZTUNNEL_CPU_THROTTLED")
+        if (snapshot.get("waypointCpuThrottledPeriods") or 0) > 0:
+            factors.append("WAYPOINT_CPU_THROTTLED")
         return factors
 
     def window_timeseries(self, start_iso: str, end_iso: str, step_seconds: int = 15) -> dict:

@@ -89,6 +89,14 @@ def extract(summary: dict) -> dict[str, float | None]:
         )
         extracted["sidecarMemoryPeakBytes"] = sidecar.get("memoryPeakBytes")
         extracted["sidecarCpuThrottledPeriods"] = sidecar.get("cpuThrottledPeriods")
+    waypoint = summary.get("resources", {}).get("waypoint")
+    if waypoint is not None:
+        waypoint_cpu = waypoint.get("cpuCoreSeconds")
+        extracted["waypointCpuCoreSecondsPerRequest"] = (
+            None if not samples or waypoint_cpu is None else waypoint_cpu / samples
+        )
+        extracted["waypointMemoryPeakBytes"] = waypoint.get("memoryPeakBytes")
+        extracted["waypointCpuThrottledPeriods"] = waypoint.get("cpuThrottledPeriods")
     ztunnel = summary.get("resources", {}).get("ztunnel")
     if ztunnel is not None:
         # Not normalized per-request: ztunnel is a per-node shared DaemonSet, not a

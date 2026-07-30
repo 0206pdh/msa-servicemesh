@@ -149,6 +149,7 @@ spec:
               gateway.networking.k8s.io/gateway-name: {{ .Values.waypoint.orchestratorGatewayName }}
       ports:
         - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: {{ .Values.ambient.hbonePort }}}
     {{- end }}
   egress:
     - to:
