@@ -75,12 +75,14 @@ that assumption silently broke without anyone re-checking it, so the planned sin
 (mTLS mode only) had actually become a two-variable one (mTLS mode **and** Istio version) without being
 caught until this point.
 
-**Fix:** rather than report a comparison confounded by two simultaneously-changed variables, a same-version
-control was measured: `phase9-sidecar-1296-permissive-control` — Sidecar with mTLS PERMISSIVE (mesh default,
-no PeerAuthentication resource), same Istio 1.29.6, same nominal (8 RPS) condition, same 10-15 rep precision
-gate. This makes the real comparison **1.29.6 PERMISSIVE vs 1.29.6 DISABLE** — actually isolating mTLS mode
-as the only variable — instead of the originally-run **1.30.3 PERMISSIVE vs 1.29.6 DISABLE**, which is kept
-on record as a secondary, confounded data point rather than discarded.
+**Fix attempted, then deliberately abandoned:** a same-version control (`phase9-sidecar-1296-permissive-control`,
+Sidecar PERMISSIVE on Istio 1.29.6, same nominal condition and precision gate) was started to isolate mTLS
+mode as the only variable. On explicit user instruction, this control run was stopped before completion —
+the decision was to accept the version confound rather than spend several more hours re-measuring, since the
+version difference (1.30.3 vs 1.29.6) was judged unlikely to change the qualitative conclusion. The result is
+reported in `docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md` using the original
+**1.30.3 PERMISSIVE vs 1.29.6 DISABLE** comparison, with the confound stated explicitly rather than hidden —
+network-bytes conclusions are treated as robust to this gap, latency conclusions are explicitly not.
 
 ## Validation and rollback
 

@@ -104,11 +104,17 @@
 
 ## Phase 9 — 개선 실험
 
-- [ ] baseline과 독립 변수 고정
-- [ ] 후보별 paired before/after 최소 10회와 CI 정밀도 Gate
-- [ ] 회귀 지표와 rollback 판정
-- [ ] 실패한 개선도 Evidence 보존
-- [ ] Phase 9 결론 validated/rejected
+- [x] baseline과 독립 변수 고정 — 실험 1(ADR-0028): Sidecar mTLS PERMISSIVE vs DISABLE, nominal 고정.
+      Istio 버전 confound(1.30.3 vs 1.29.6) 발견했으나 사용자 판단으로 수용하고 명시적으로 기록
+- [x] 후보별 paired before/after 최소 10회와 CI 정밀도 Gate — 실험 1: DISABLE 10회 `STOP_PRECISION_REACHED`
+      (기존 PERMISSIVE 15회 `INCONCLUSIVE_MAX_RUNS`보다 빠르게 수렴)
+- [x] 회귀 지표와 rollback 판정 — 실험 1: latency는 DISABLE이 오히려 유의하게 악화(p95 +12.4ms, p99
+      +18.9ms, 단 버전 confound로 확정 불가). mTLS DISABLE은 실험 종료 후 즉시 PERMISSIVE로 rollback함
+- [x] 실패한 개선도 Evidence 보존 — 실험 1의 핵심 가설("mTLS가 Sidecar network-bytes 오버헤드의 주 원인")은
+      기각됨(전체 오버헤드의 ~3%만 mTLS 기여). 조작 없이 기각 결과 그대로 보존
+      (`docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md`)
+- [ ] Phase 9 결론 validated/rejected — 실험 1 완료(가설 기각), 실험 2(ztunnel latency 정식 확인)와 실험
+      3(mesh 비용의 proxy/network 계층 국한 — Phase 8에서 이미 확인된 부정 결과, 신규 실험 불필요) 남음
 
 ## Phase 10 — 회복탄력성
 

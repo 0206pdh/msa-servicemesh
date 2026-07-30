@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정(버전 재설치로도 동일 재현), replica-scaling 방향성 연구 완료, Phase 8 완료(통계 비교 + 시간축 분석 한계 기록) — Phase 9 착수 준비 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) blocked 최종 확정, replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1(Sidecar mTLS DISABLE) 완료 — 가설 기각 · **시작일**: 2026-07-22
 
 ---
 
@@ -209,7 +209,7 @@ Experiment Runner (Python)
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
 | 7 | Ambient + Waypoint 기준선 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
 | 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
-| 9 | 개선안별 단일 변수 실험 | `[TODO]` |
+| 9 | 개선안별 단일 변수 실험 | 🔄 실험 1 완료(가설 기각, §6.8), 실험 2 진행 예정 |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
 | 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
 
@@ -520,6 +520,30 @@ latency가 가장 높았던 run 구간(Ambient high 조건, p99 63.9ms)의 로�
 
 전체 Evidence: [2026-07-30 Phase 8 cross-profile comparison](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md)
 
+### 6.8 Phase 9 개선 실험 1 — Sidecar mTLS DISABLE, 가설 기각 (2026-07-30)
+
+Phase 8의 가장 강한 신호(Sidecar network bytes/request가 No-Mesh 대비 ~49% 증가)를 보고 세운 첫 번째
+가설 — "이 증가분의 주된 원인은 Envoy가 붙이는 mTLS 핸드셰이크/레코드 오버헤드다" — 를 직접 검증했다
+(ADR-0028). mTLS를 `PeerAuthentication` 리소스로 끄고(`DISABLE`), 나머지는 전부 고정한 채 nominal(8 RPS)
+조건에서 정식 10~15회 반복 측정을 새로 돌렸다 — 10회 만에 정밀도 게이트를 통과했는데, 이는 기존
+PERMISSIVE 측정이 15회 상한까지도 수렴하지 못했던 것과 대비된다.
+
+**결과는 가설을 기각했다.** mTLS를 꺼도 network bytes/request는 겨우 341바이트(~1%)만 줄었다 — Phase 8이
+찾아낸 Sidecar의 전체 오버헤드(10,469바이트, ~49%) 중 mTLS가 설명하는 부분은 최대 3% 남짓이라는 뜻이다.
+나머지 97%는 mTLS 암호화 자체가 아니라 Envoy의 HTTP/2 프레이밍이나 envoy-to-envoy 홉 자체의 부가 정보처럼
+다른 곳에서 온다는 것이 이번 실험의 결론이다. "그럴듯해 보이는 첫 번째 가설"이 실제로는 틀렸다는 것을
+직접 측정으로 확인하고, 그대로 정직하게 기록했다.
+
+측정 도중 뜻밖의 발견도 하나 나왔다 — mTLS를 끄니 latency가 오히려 유의하게 **나빠졌다**(p95 +12.4ms,
+p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 쓴 기존 Phase 5 baseline이 Istio 1.30.3에서
+측정된 반면 지금 클러스터는 Waypoint 재시도 때 1.29.6으로 통째로 재설치돼 있다는 걸 발견했다 — 즉 "mTLS
+모드 하나만 바꾼" 게 아니라 Istio 버전까지 같이 달라진 비교였던 것이다. 같은 버전으로 다시 측정해
+확인하려 했으나, 시간 대비 실익이 적다는 판단(사용자 지시)에 따라 이 버전 차이는 감수하기로 하고, latency
+결과는 "확정 아님"이라는 꼬리표를 붙인 채로만 보고했다 — network bytes 결론(mTLS가 원인의 극히 일부)은
+이 confound에 크게 영향받지 않는다고 판단해 그대로 유지했다.
+
+전체 Evidence: [2026-07-30 Phase 9 mTLS-disable experiment](docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -636,7 +660,7 @@ latency가 가장 높았던 run 구간(Ambient high 조건, p99 63.9ms)의 로�
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🚧 blocked 최종 확정 (버전 독립적 비호환, §6.5) |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
-| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | Phase 8 완료 후 착수 |
+| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | 🔄 실험 1 완료(§6.8), 실험 2 진행 예정 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
@@ -692,6 +716,8 @@ latency가 가장 높았던 run 구간(Ambient high 조건, p99 63.9ms)의 로�
 | Waypoint blocked 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
 | Replica-scaling 방향성 연구 Evidence | [docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md) |
 | Phase 8 profile 간 통계 비교 Evidence | [docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
+| Phase 9 mTLS DISABLE 실험 결정 | [ADR-0028](docs/decisions/0028-phase9-sidecar-mtls-disable-experiment.md) |
+| Phase 9 mTLS DISABLE 실험 Evidence | [docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md](docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

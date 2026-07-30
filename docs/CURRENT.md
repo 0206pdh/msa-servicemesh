@@ -5,10 +5,11 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 8 완료 — profile 간 정식 통계 비교 완료, 시간축 상관 분석은 재구성 불가로 한계 기록.
-  Phase 9(개선 실험) 착수 준비
+- Overall Phase: Phase 9 진행 중 — 개선 실험 1(Sidecar mTLS DISABLE, ADR-0028) 완료: 가설 기각(mTLS는
+  network-bytes 오버헤드의 ~3%만 설명), latency는 유의하게 악화됐으나 Istio 버전 confound로 확정 불가.
+  실험 2(ztunnel latency 정식 확인)·실험 3(Phase 8에서 이미 확인된 부정 결과, 신규 실험 불필요) 남음
 - Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 1 replica)로 복구됨
-- Status: phase-8-done-phase-9-ready
+- Status: phase-9-experiment-1-done
 - Last updated: 2026-07-30
 
 ## 완료된 기준점
@@ -106,15 +107,24 @@
       (애플리케이션이 lifecycle/error만 기록하고 요청 단위 로그를 안 남김) 상관 분석에 쓸 내용이 없었다.
       조작 없이 이 정확한 한계로 기록하고 Phase 8 Evidence 종료
 - [x] Phase 8 Evidence validated (통계 비교 완료 + 시간축 분석 한계 기록)
+- [x] Runner에 `window_timeseries()` 추가 — run마다 15초 간격 실제 시계열(`raw/prometheus-timeseries.json`)을
+      집계 스냅샷과 함께 저장 (Phase 8에서 겪은 "재구성 불가" 한계 재발 방지, 게이트에는 영향 없음)
+- [x] Phase 9 실험 1(ADR-0028) 완료: Sidecar mTLS PERMISSIVE vs DISABLE, nominal 8 RPS, DISABLE 10회
+      `STOP_PRECISION_REACHED`. 핵심 가설("mTLS가 Sidecar network-bytes 오버헤드의 주 원인") 기각 —
+      DISABLE은 network bytes/request를 341B(~1%)만 줄임, Phase 8에서 확인한 Sidecar 전체 오버헤드
+      10,469B(~49%)의 극히 일부. p95/p99 latency는 DISABLE에서 오히려 유의하게 악화(+12.4ms/+18.9ms)했으나,
+      측정 도중 Phase 5 baseline(Istio 1.30.3)과 이번 측정(1.29.6) 사이 버전이 다르다는 confound를 발견함.
+      같은 버전 대조군 측정을 시작했으나 사용자 지시로 중단하고, confound를 명시한 채 기존 비교를 그대로
+      보고하기로 함 (`docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md`)
+- [x] mTLS DISABLE 실험 종료 후 클러스터를 순수 Ambient 상태로 복구
 
 ## 다음 작업
 
-1. Phase 9(개선 실험) 준비: comparison Evidence의 "Candidate bottleneck hypotheses" 3건(Sidecar mTLS/HTTP
-   framing 오버헤드, ztunnel 공유 프록시 latency 저하 미확정 가설, mesh 비용이 proxy/network 계층에
-   국한된다는 부정 결과)을 검증할 단일 변수 실험을 설계한다.
-2. Phase 9 실험을 설계할 때는 Runner의 `window_snapshot()`에 `query_range` 기반 시계열 캡처를 추가하는
-   것을 검토한다 — 그래야 향후 실험에서는 이번에 겪은 "시간축 상관 분석 불가" 한계가 재발하지 않는다
-   (`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`의 backlog 메모 참고).
+1. Phase 9 실험 2: ztunnel 공유 프록시 latency 저하 가설을 정식 10~15회 반복으로 확인한다(현재는
+   replica-scaling 방향성 연구의 3회 반복 데이터만 있음). Ambient profile로 전환 필요.
+2. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
+   부정 결과이므로 신규 실험이 필요한지 재검토 — 불필요하다고 결론 나면 Phase 9는 실험 1·2로 마무리한다.
+3. 실험 2 이후 Phase 9 결론(validated/rejected)을 종합하고 Phase 10(회복탄력성)으로 진행한다.
 
 ## 현재 한계
 
@@ -190,6 +200,15 @@
 - Replica-scaling: ADR-0027, `experiments/replica_scaling.py`, 18/18 run `COMPLETED` (Sidecar/Ambient × 1/2/4 replica × 3회)
 - Python 전체 unittest: 27 passed
 - Git: ADR-0027 `30abbef`/`6f90e72`, replica_scaling.py `b702871`, replica-scaling Evidence 커밋 예정
+- Python 전체 unittest: 33 passed (baseline.py conditions/extra_spec_fields 신규 테스트 2개 포함)
+- Runner 개선: `KubernetesAdapter.window_timeseries()` 추가, `raw/prometheus-timeseries.json`으로 15초
+  간격 실제 시계열 저장 시작(게이트 미적용, 실패해도 run 무효화 안 함)
+- Phase 9 실험 1: Sidecar mTLS DISABLE 10회 `STOP_PRECISION_REACHED` (nominal, Istio 1.29.6). PERMISSIVE
+  대비 network bytes/request -341B(~1%)만 감소 → mTLS는 Sidecar 전체 오버헤드(Phase 8 기준 10,469B)의
+  ~3%만 설명, 가설 기각. p95/p99는 유의하게 악화(+12.4ms/+18.9ms)했으나 Istio 1.30.3(before)/1.29.6(after)
+  버전 confound가 있어 확정하지 않음(사용자 지시로 같은 버전 대조군 측정은 중단)
+- Wire-level mTLS 검증: `istioctl proxy-config listener`로 DISABLE 시 inbound listener에 tlsContext 없음 확인
+- Git: Runner 시계열 캡처 `aaa5a56`, ADR-0028 confound 기록 `1b0ba9e`, Phase 9 Evidence 커밋 예정
 
 ## 재개 절차
 
