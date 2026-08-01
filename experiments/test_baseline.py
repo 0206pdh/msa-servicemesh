@@ -112,6 +112,14 @@ class BaselineMeasurementTests(unittest.TestCase):
         )
         self.assertEqual(scaled_spec["kubernetes"]["expectedScrapeTargets"], 10)
 
+    def test_formal_spec_accepts_hop_delay_override(self):
+        default_spec = formal_spec("nominal", 8, run_id_prefix="phase10-chain-delay", profile="AMBIENT")
+        self.assertEqual(default_spec["workloadConfig"]["work"]["delayMs"], 1)
+        delayed_spec = formal_spec(
+            "nominal", 8, run_id_prefix="phase10-chain-delay", profile="AMBIENT", hop_delay_ms=200,
+        )
+        self.assertEqual(delayed_spec["workloadConfig"]["work"]["delayMs"], 200)
+
     def test_baseline_measurement_can_scope_to_a_single_condition(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

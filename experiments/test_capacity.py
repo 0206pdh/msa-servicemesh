@@ -18,6 +18,14 @@ class CapacityTests(unittest.TestCase):
         spec = discovery_spec("run", 40, expected_scrape_targets=10)
         self.assertEqual(spec["kubernetes"]["expectedScrapeTargets"], 10)
 
+    def test_discovery_default_hop_delay_is_one_ms(self):
+        spec = discovery_spec("run", 40)
+        self.assertEqual(spec["workloadConfig"]["work"]["delayMs"], 1)
+
+    def test_discovery_accepts_hop_delay_override(self):
+        spec = discovery_spec("run", 40, hop_delay_ms=200)
+        self.assertEqual(spec["workloadConfig"]["work"]["delayMs"], 200)
+
     def test_p99_over_twice_low_load_fails(self):
         summary = {"status": "COMPLETED", "loadProfileTargetRps": 40,
                    "invalidatingFactors": [], "metrics": {"latencyMs": {"p99": 21}}}

@@ -21,7 +21,7 @@ CAPACITY_FAILURE_FACTORS = {
 
 
 def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, profile: str = "NO_MESH",
-                    expected_scrape_targets: int = 7) -> dict:
+                    expected_scrape_targets: int = 7, hop_delay_ms: int = 1) -> dict:
     load = {
         "executor": "CONSTANT_ARRIVAL_RATE",
         "targetRps": target_rps,
@@ -52,7 +52,7 @@ def discovery_spec(run_id: str, target_rps: int, kubeconfig: str | None = None, 
         "workloadConfig": {
             "hopCount": 3,
             "payloadBytes": 1024,
-            "work": {"delayMs": 1, "delayDistribution": "FIXED", "errorRate": 0,
+            "work": {"delayMs": hop_delay_ms, "delayDistribution": "FIXED", "errorRate": 0,
                      "cpuMillis": 0, "memoryBytes": 0, "blockingIoMs": 0, "seed": 42},
         },
         "loadProfile": load,
