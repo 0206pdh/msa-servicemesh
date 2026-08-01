@@ -28,7 +28,7 @@ Benchmark Workload다.
 | Ambient의 요청당 network bytes 증가 | No-Mesh 대비 **+1~2%**만 (Sidecar의 1/20~1/40 수준) | 위와 동일 |
 | Sidecar 오버헤드에서 mTLS가 차지하는 비중 | mTLS DISABLE 시 감소분은 전체 오버헤드의 **~3%뿐** | [Phase 9 실험 1](docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md) |
 | Sidecar/Ambient가 애플리케이션 자체 CPU에 주는 영향 | 9개 profile 비교 전부 **유의한 차이 없음** | [Phase 8 비교](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
-| Ambient + Waypoint (L7 selective proxy) | waypoint→backend 연결 실패의 원인은 NetworkPolicy 포트 누락(자체 설정 버그)이었음을 확인·해결, 정식 반복측정 진행 예정 | [Waypoint 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
+| Waypoint의 요청당 network bytes | No-Mesh 대비 **+16~18%**, 정확히 Ambient(+1~2%)와 Sidecar(+49%) 사이 | [Phase 7 Waypoint 최종 Evidence](docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md) |
 
 latency는 대부분의 비교에서 이 클러스터의 노이즈 하한(p95 ≈5ms/p99 ≈8ms)보다 작은 차이만 관측되어
 "확인된 차이 없음"으로 보고했다 — 확인되지 않은 차이를 "없다"고 주장하는 것과는 다르다는 점을 모든 결론에
@@ -96,7 +96,7 @@ Workload는 지연, 오류율, 응답 크기, CPU, 메모리, fan-out 수와 hop
 | 4 | No Mesh 기준선 | 완료 |
 | 5 | Sidecar 기준선 | 완료 |
 | 6 | Ambient 기준선 (고정 replica) | 완료 |
-| 7 | Ambient + Waypoint 기준선 | 연결 문제 해결(NetworkPolicy 버그), 정식 반복측정 진행 예정 |
+| 7 | Ambient + Waypoint 기준선 | 완료 |
 | 8 | profile 간 통계 비교와 병목 선정 | 완료 |
 | 9 | 개선안별 단일 변수 실험 | 진행 중 (실험 1 완료·가설 기각, 실험 2 진행) |
 | 10 | 회복탄력성·Chaos 재검증 | 예정 |
@@ -128,12 +128,10 @@ Workload는 지연, 오류율, 응답 크기, CPU, 메모리, fan-out 수와 hop
 
 ## 현재 상태
 
-- 완료: Phase 0~6, Phase 8 (설계 · Workload · Runner · 플랫폼 · No-Mesh/Sidecar/Ambient 기준선 · profile 간
-  통계 비교)
-- 해결됨: Phase 7 Waypoint — waypoint→backend 연결 실패의 원인은 NetworkPolicy의 HBONE 포트(15008)
-  누락이라는 자체 설정 버그였다(`cilium monitor --type drop`으로 확인). 한때 "버전 독립적 비호환"으로
-  내렸던 결론은 오류였음을 확인·정정했다. 정식 반복측정 진행 예정
+- 완료: Phase 0~8 (설계 · Workload · Runner · 플랫폼 · No-Mesh/Sidecar/Ambient/Waypoint 기준선 · profile
+  간 통계 비교). Waypoint는 waypoint→backend 연결 실패 원인(NetworkPolicy의 HBONE 포트 15008 누락, 자체
+  설정 버그)을 확인·해결한 뒤 정식 반복측정까지 완료했다 — network bytes/request가 Ambient와 Sidecar
+  사이(No-Mesh 대비 +16~18%)에 위치한다는 것을 확인했다
 - 진행 중: Phase 9 개선 실험 — 실험 1(Sidecar mTLS DISABLE)은 완료되어 가설 기각(mTLS는 Sidecar network
-  overhead의 ~3%만 설명), 실험 2(Ambient replica 확장에 따른 latency 저하 정식 확인)는 Phase 7 재작업을
-  위해 잠시 중단
-- 다음 Gate: Phase 7 정식 반복측정 → Phase 9 실험 2 재개 → Phase 9 결론 확정 → Phase 10(회복탄력성) 착수
+  overhead의 ~3%만 설명), 실험 2(Ambient replica 확장에 따른 latency 저하 정식 확인) 진행 중
+- 다음 Gate: Phase 9 실험 2 완료 → Phase 9 결론 확정 → Phase 10(회복탄력성) 착수

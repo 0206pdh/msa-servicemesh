@@ -5,14 +5,15 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: **Phase 7 Waypoint 해결됨(2026-07-30)** — NetworkPolicy 템플릿 버그(HBONE 15008 포트
-  누락)가 근본 원인이었음을 확인·수정. 예전의 "버전 독립적 비호환" 결론은 정정됨. 정식 반복측정 착수 예정.
-  Phase 9는 개선 실험 1(Sidecar mTLS DISABLE, ADR-0028) 완료: 가설 기각. 실험 2(Ambient replica=4 정식
-  확인)는 Phase 7 재작업을 위해 중단, 나중에 재개 예정
-- Infrastructure Step: 클러스터는 Ambient + Waypoint 활성화 상태(Istio 1.29.6, orchestrator-service 1
-  replica, `orchestrator-waypoint` Gateway 정상 동작 확인됨, Helm revision 27+)
-- Status: phase-7-resolved-formal-measurement-pending
-- Last updated: 2026-07-30
+- Overall Phase: **Phase 7 Waypoint 완료(2026-08-01)** — NetworkPolicy 템플릿 버그(HBONE 15008 포트 누락)
+  해결 후 nominal/high/near-saturation 정식 반복측정(각 15회) 완료. 핵심 발견: network bytes/request가
+  Ambient·Sidecar 사이(No-Mesh 대비 +16~18%), latency는 nominal/high에서 일관되게 유의하게 느리지만
+  near-saturation에서 차이 소멸. Phase 9는 실험 1(Sidecar mTLS DISABLE) 완료(가설 기각), 실험 2(Ambient
+  replica=4 정식 확인) 재개함
+- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 4 replica로
+  전환, Waypoint 라우팅 제거)
+- Status: phase-7-done-phase-9-experiment-2-resumed
+- Last updated: 2026-08-01
 
 ## 완료된 기준점
 
@@ -123,19 +124,26 @@
       같은 버전 대조군 측정을 시작했으나 사용자 지시로 중단하고, confound를 명시한 채 기존 비교를 그대로
       보고하기로 함 (`docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md`)
 - [x] mTLS DISABLE 실험 종료 후 클러스터를 순수 Ambient 상태로 복구
+- [x] Phase 7 Waypoint 정식 반복측정 완료(2026-08-01): nominal/high/near-saturation 각 15회
+      `INCONCLUSIVE_MAX_RUNS`(Sidecar와 같은 패턴). 무효율 30~45%(`NODE_MEMORY_HEADROOM_LOW`)였으나
+      VM 자원은 바꾸지 않고 반복 횟수만 늘려 극복
+- [x] Waypoint cross-profile 비교(9건) 완료: network bytes/request는 세 조건 모두 Ambient와 Sidecar
+      사이(No-Mesh 대비 +16~18%, Ambient +1~2%/Sidecar +49%와 대비, 9/9 유의). latency는 nominal/high
+      조건에서 세 profile 대비 일관되게 유의하게 느리지만(2개 부하 조건 재현) near-saturation에서는 차이
+      소멸(원인 미규명). app CPU는 high 조건에서만 간헐적 유의, memory는 9/9 유의한 차이 없음
+      (`docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md`)
+- [x] Phase 7 Evidence validated — Phase 7 완료
+- [x] 클러스터를 Waypoint→순수 Ambient로 복구, orchestrator-service를 4 replica로 전환해 Phase 9 실험 2 재개
 
 ## 다음 작업
 
-1. **Phase 7 Waypoint 정식 반복측정**: nominal/high/near-saturation 세 조건, 10~15회, bootstrap CI
-   정밀도 게이트(Phase 4~6과 동일 기준). `resources.waypoint` 자원 수집이 오늘 구현됐으므로 Sidecar와
-   비교 가능한 per-request CPU/메모리 데이터를 함께 얻는다.
-2. Phase 7 완료 후 Phase 9 실험 2(Ambient replica=4, 중단했던 것) 재개: orchestrator-service를 다시
-   Ambient(Waypoint 없이) + replica=4로 전환해야 한다.
-3. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
+1. **Phase 9 실험 2(Ambient replica=4) 진행 중**: orchestrator-service 4 replica, nominal 조건, 10~15회
+   정식 반복측정 재개함(`phase9-ambient-replica4`). 완료되면 Phase 6 canonical(replica=1)과 비교.
+2. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
    부정 결과이므로 신규 실험이 필요한지 재검토 — 불필요하다고 결론 나면 Phase 9는 실험 1·2로 마무리한다.
-4. Phase 8의 3-profile 비교를 4-profile(Waypoint 포함)로 확장할지 검토 — Waypoint는 단일 hop 선택 경로
-   구성이라 다른 세 profile과 직접적인 apples-to-apples 비교는 제한적일 수 있음을 감안한다.
-5. 위 작업 종합 후 Phase 10(회복탄력성)으로 진행한다.
+3. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘은 미규명 — Phase 9 후속 실험 후보로
+   기록해뒀다(정밀도 부족 때문인지, 실제 현상인지 구분 필요).
+4. 위 작업 종합 후 Phase 10(회복탄력성)으로 진행한다.
 
 ## 현재 한계
 
@@ -144,7 +152,7 @@
 - nominal(8 RPS) 조건은 No Mesh에서 15회까지도 p99 정밀도 기준에 수렴하지 않았다. cross-profile 비교에서 nominal의 p99는 다른 조건보다 넓은 CI를 감안해 해석한다.
 - Sidecar profile은 세 조건 모두 15회 상한에도 latency 정밀도가 수렴하지 않았다(No Mesh보다 CI가 넓음). No-Mesh 대비 예비 비교(Evidence 문서 참고)는 방향성 참고용일 뿐이며, 정식 profile 간 통계 비교 도구는 아직 없다(Phase 8에서 구현 예정).
 - Ambient는 high 조건만 15회 상한에도 p99가 수렴하지 않았다(세 profile 중 가장 넓은 단일 미달 폭, 10.00ms).
-- Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint) 정식 반복측정에서도 같은 제약을 받을 것으로 예상하며, 측정 중 확인이 필요하다.
+- Sidecar/Ambient 도입 후 메모리 여유가 더 빠듯해졌다(`NODE_MEMORY_HEADROOM_LOW`가 Phase 5/6에서 가장 흔한 무효 요인). Phase 7(Waypoint) 정식 반복측정에서 무효율 30~45%로 실제 확인됐다 — VM 자원은 바꾸지 않고 반복 횟수만 늘려서 극복했다. Phase 9 실험 2(replica=4)에서도 같은 제약이 예상된다.
 - **Phase 6의 replica/node 확장 측정은 아직 하지 않았다** — 지금 Evidence는 고정 replica(서비스당 1개) 조건에서만 유효하다.
 - kafka/producer/worker의 Ambient HBONE 연결이 여전히 타임아웃된다(SYNC_CHAIN 범위 밖이라 이번 Evidence에는 영향 없음, Phase 9 비동기 파이프라인 작업 시 재확인 필요).
 - **Prometheus/Tempo는 24h retention이 실제로 강제되고 있어 Phase 4~7 run들의 원본 metric/trace는 이미 만료돼 다시 조회할 수 없다**(Prometheus는 자체 TSDB retention, Tempo는 살아있는 compactor로 확인). Runner가 저장하는 `raw/prometheus-window.json`도 구간 전체 집계 스칼라값일 뿐 실제 시계열이 아니다. 반면 **Loki(로그)는 `retention_period: 24h`가 설정만 돼 있을 뿐 compactor/retention_enabled가 없어 실제로는 강제되지 않는다** — 2026-07-23 시점 로그도 여전히 조회 가능함을 직접 확인했다. 다만 확인해보니 애플리케이션이 lifecycle/error 로그만 남기고 요청 단위 로그를 남기지 않아, 로그가 남아있어도 시간축 상관 분석에 쓸 만한 내용은 없었다(`docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md`). 향후 시간축 상관 분석이 필요한 실험은 run 종료 직후(24h 이내) metric/trace를 별도로 조회하거나 Runner에 `query_range` 캡처를 추가해야 하고, 로그 기반 분석을 쓰려면 애플리케이션 로깅 자체를 더 상세하게 바꿔야 한다.
@@ -233,6 +241,14 @@
 - Git: NetworkPolicy 수정 + Waypoint 자원 수집 `6711f53`
 - 문서 정정: 이전 "버전 독립적 근본 비호환" 결론을 오류로 정정 — `phase-07-p1-waypoint-blocked`,
   ADR-0026 amendment, 이 파일에 모두 반영
+- Phase 7 Waypoint 정식 baseline: nominal/high/near-saturation 각 15회 `INCONCLUSIVE_MAX_RUNS`
+- Waypoint 실측 자원: request당 CPU 0.0014~0.0016 core-s, 메모리 peak ~45MB(Sidecar와 동일 모델)
+- Waypoint cross-profile 비교 9건: network bytes/request 9/9 유의(Ambient·Sidecar 사이, No-Mesh 대비
+  +16~18%), latency는 nominal/high 조건에서 세 profile 대비 일관되게 유의, near-saturation은 유의하지 않음
+- Python 전체 unittest: 36 passed
+- 클러스터: Waypoint 라우팅 제거, 순수 Ambient 복구, orchestrator-service 4 replica로 전환(scrape targets
+  10 확인)
+- Git: Phase 7 최종 Evidence 커밋 예정
 
 ## 재개 절차
 

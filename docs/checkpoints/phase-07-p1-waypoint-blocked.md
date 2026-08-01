@@ -1,10 +1,11 @@
 # Checkpoint — `phase-07-p1-waypoint-blocked`
 
-- Status: **resolved (2026-07-30)** — root cause found and fixed, was never a version/architecture
-  incompatibility; see "최종 해결" section below. Kept as `phase-07-p1-waypoint-blocked` for history.
+- Status: **complete (2026-08-01)** — root cause found and fixed (2026-07-30), formal repeated
+  measurement completed (2026-08-01); see "최종 해결" section below. Kept as
+  `phase-07-p1-waypoint-blocked` for history.
 - Owner: dohyun
 - Started at: 2026-07-29
-- Updated at: 2026-07-30
+- Updated at: 2026-08-01
 - Branch/commit: main (see commits referenced below)
 - Related Phase: [Phase 7](../phases/phase-07-waypoint.md)
 - Related contract/ADR: [ADR-0026](../decisions/0026-waypoint-deployment-scope.md)
@@ -21,8 +22,8 @@ Ambient 위에 orchestrator-service 단일 hop으로 Waypoint proxy를 배치하
 - [x] Gateway 리소스 생성과 Waypoint Pod 자동 프로비저닝 확인
 - [x] gateway→waypoint 홉 NetworkPolicy 수정 (HBONE 15008)
 - [x] **waypoint→실제 backend pod 홉 연결 성공 — 2026-07-30 해결** (아래 "최종 해결" 절 참고)
-- [ ] paired core 조건 반복측정 — 착수 예정
-- [ ] Phase 7 Evidence — 측정 진행 예정
+- [x] paired core 조건 반복측정 — 2026-08-01 완료 (nominal/high/near-saturation 각 15회)
+- [x] Phase 7 Evidence — [2026-08-01-canonical-waypoint-baseline-final.md](../evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md)
 
 ## 변경 근거
 
@@ -160,10 +161,23 @@ Istio 설치의 일부가 아니다 — Istio를 완전히 재설치해도 Helm�
 
 클러스터는 Waypoint 상태로 유지하고 Phase 7 정식 반복측정을 진행한다.
 
+## 정식 반복측정 완료 (2026-08-01)
+
+nominal/high/near-saturation 세 조건에서 Phase 4~6과 동일한 수준(10~15회, bootstrap CI 정밀도 게이트)의
+정식 반복측정을 완료했다. 세 조건 모두 15회 상한까지 `INCONCLUSIVE_MAX_RUNS`(Sidecar와 같은 패턴).
+무효율이 30~45% 수준으로 높았으나(`NODE_MEMORY_HEADROOM_LOW` — Waypoint가 Ambient 위에 추가 프록시를
+얹으면서 메모리 여유가 더 빠듯해짐), VM 자원 할당은 다른 모든 canonical 측정과 동일하게 유지한 채 반복
+횟수만 늘려 극복했다(하드웨어를 바꾸면 기존 비교가 무효가 되므로 변경하지 않는다는 원칙).
+
+전체 결과와 cross-profile 비교: [2026-08-01-canonical-waypoint-baseline-final.md](../evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md).
+핵심 발견: network bytes/request는 Ambient와 Sidecar 사이(No-Mesh 대비 +16~18%), latency는
+nominal/high에서 일관되게 유의하게 느리지만 near-saturation에서는 차이가 사라짐(원인 미규명).
+
+측정 완료 후 클러스터는 Phase 9 실험 2(Ambient replica 확장) 재개를 위해 Waypoint 라우팅을 제거하고
+순수 Ambient 상태로 복구했다.
+
 ## 다음 재개 지점
 
-- 이 항목은 해결됐다. 다음 단계는 nominal/high/near-saturation 세 조건에서 Phase 4~6과 동일한 수준(10~15회,
-  bootstrap CI 정밀도 게이트)의 정식 반복측정을 실행하는 것이다.
+- 이 checkpoint는 완료됐다. 남은 재개 후보: near-saturation에서 latency 차이가 사라지는 메커니즘 규명
+  (Phase 9 후속 실험 후보), 전체 경로(5개 서비스) Waypoint 구성 측정(ADR-0026에서 범위 밖으로 명시).
 - 필요한 파일: `deploy/environments/waypoint/values.yaml`(이미 작성됨), ADR-0026.
-- 클러스터 상태: Istio 1.29.6, Ambient + Waypoint(`orchestrator-waypoint`) 활성화, NetworkPolicy 수정
-  적용 완료(Helm revision 27+).

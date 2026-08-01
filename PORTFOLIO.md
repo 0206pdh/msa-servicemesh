@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-07-30 · **진행 상태**: Phase 4~6 완료, Phase 7(Waypoint) 연결 문제 해결(NetworkPolicy 버그) · 정식 측정 예정, replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1(Sidecar mTLS DISABLE) 완료 — 가설 기각 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-08-01 · **진행 상태**: Phase 4~7 완료(Waypoint 정식 측정 포함), replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1 완료(가설 기각) · 실험 2(Ambient replica=4) 진행 중 · **시작일**: 2026-07-22
 
 ---
 
@@ -192,7 +192,7 @@ Experiment Runner (Python)
 | No Mesh | Client → App A → App B (Cilium만) | ✅ Phase 4 완료 |
 | Sidecar | Pod마다 Envoy proxy 동반 (Istio 1.30.3) | ✅ Phase 5 완료 |
 | Ambient | Node 공유 ztunnel (L4) | ✅ Phase 6 고정 replica 완료, 확장 측정 잔여 |
-| Ambient + Waypoint | 선택적 L7 proxy 추가 | 🔄 연결 문제 해결, 정식 반복측정 진행 예정 |
+| Ambient + Waypoint | 선택적 L7 proxy 추가 | ✅ Phase 7 완료 (§6.5) |
 
 ---
 
@@ -207,7 +207,7 @@ Experiment Runner (Python)
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
-| 7 | Ambient + Waypoint 기준선 | 🔄 연결 문제 해결됨(§6.5), 정식 반복측정 진행 예정 |
+| 7 | Ambient + Waypoint 기준선 | ✅ 완료(§6.5) |
 | 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
 | 9 | 개선안별 단일 변수 실험 | 🔄 실험 1 완료(가설 기각, §6.8), 실험 2 진행 예정 |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
@@ -245,8 +245,8 @@ Experiment Runner (Python)
 - [x] gateway→waypoint 홉 NetworkPolicy 수정과 정상 동작 확인
 - [x] Istio 1.29.6으로 완전 재설치 후 재시도 — 당시 "버전 독립적 비호환"으로 판단했으나 이후 오류로 정정
 - [x] **waypoint→실제 backend pod 홉 연결 — 2026-07-30 해결** (§6.5, NetworkPolicy 포트 누락이 원인)
-- [ ] paired core 조건 반복측정 — 진행 예정
-- [ ] Phase 7 Evidence — 측정 진행 예정
+- [x] paired core 조건 반복측정 — 2026-08-01 완료 (nominal/high/near-saturation 각 15회)
+- [x] Phase 7 Evidence — 완료 (§6.5)
 
 ---
 
@@ -432,10 +432,34 @@ NetworkPolicy는 전혀 건드려지지 않고 그대로 남아있었다. 그러
 "가능한 다른 원인을 전부 배제했다"로 착각한 사례였고, 정직하게 기록해 둔다.
 
 Waypoint 프록시 자체의 자원 수집(`resources.waypoint`)도 이번에 처음 구현했다 — 이전까지는 항상
-`null`로 비어 있었다. 이제 Sidecar와 같은 방식(request당 정규화)으로 CPU/메모리를 측정할 수 있고, 정식
-반복측정을 진행할 준비가 됐다.
+`null`로 비어 있었다. 이제 Sidecar와 같은 방식(request당 정규화)으로 CPU/메모리를 측정할 수 있다.
 
 상세 진단 기록(진단 과정 전체와 오류 정정 경위 포함): [phase-07-p1-waypoint-blocked 체크포인트](docs/checkpoints/phase-07-p1-waypoint-blocked.md)
+
+**정식 반복측정도 완료했다(2026-08-01).** nominal/high/near-saturation 세 조건에서 Phase 4~6과 같은
+기준(10~15회, bootstrap CI)으로 측정했다 — 세 조건 모두 15회 상한까지 `INCONCLUSIVE_MAX_RUNS`(Sidecar와
+같은 패턴). 무효율이 30~45%로 Sidecar/Ambient 때보다 높았는데(Waypoint가 Ambient 위에 프록시를 하나 더
+얹으니 이 3-VM 클러스터의 메모리 여유가 더 빠듯해진 것), **VM 자원 할당은 다른 모든 canonical 측정과
+동일하게 유지한 채** 반복 횟수만 늘려서 극복했다 — 여기서 VM 메모리를 늘렸다면 지금까지의 No-Mesh/
+Sidecar/Ambient 비교 전부와 하드웨어 조건이 달라져 비교 자체가 무효가 됐을 것이다.
+
+Phase 8과 같은 방식으로 No-Mesh/Sidecar/Ambient 세 profile과 9번 비교한 결과:
+
+| 지표 | 결과 |
+|---|---|
+| network bytes/request | 세 부하 조건 모두에서 **정확히 Ambient와 Sidecar 사이**에 위치(No-Mesh 대비 +16~18%, Ambient +1~2%·Sidecar +49%와 대비). 9/9 비교 전부 유의 |
+| p95/p99 latency | nominal·high 조건에서는 No-Mesh/Sidecar/Ambient 전부보다 **일관되게 유의하게 느림**. near-saturation에서는 이 차이가 사라짐(원인 미규명) |
+| app CPU-per-request | high 조건에서만 간헐적으로 유의, 나머지는 차이 없음 |
+| app memory | 9/9 비교 전부 유의한 차이 없음(다른 모든 profile 비교와 같은 패턴) |
+
+network bytes 결과는 Waypoint의 아키텍처와 정확히 들어맞는다 — Ambient의 가벼운 L4 기반(ztunnel/HBONE)
+위에 L7 처리를 위한 Envoy 홉을 하나 추가한 구조이니, Ambient보다는 무겁고 모든 hop마다 전용 프록시가
+붙는 Sidecar보다는 가벼운 게 당연하다. Latency 결과는 흥미로운 패턴이다 — 서로 다른 두 부하
+조건(nominal, high)에서 같은 방향으로 재현됐다는 점에서 Phase 8의 단발성 신호들보다 신뢰도가 높지만,
+near-saturation에서 사라지는 이유는 이 데이터만으로는 설명할 수 없다(정밀도 부족인지 실제 현상인지
+구분 불가) — Phase 9 후속 실험 후보로 남겨뒀다.
+
+전체 Evidence: [2026-08-01 canonical Waypoint baseline final](docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md)
 
 ### 6.6 Replica 확장 방향성 연구 — 완료 (2026-07-29)
 
@@ -674,9 +698,9 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 |---|---|---|
 | 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
-| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | 🔄 연결 문제 해결됨(§6.5), 정식 반복측정 진행 예정 |
+| 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | ✅ 완료(§6.5) |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
-| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | 🔄 실험 1 완료(§6.8), 실험 2 진행 예정 |
+| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | 🔄 실험 1 완료(§6.8), 실험 2 진행 중 |
 | 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
@@ -732,6 +756,7 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 | Sidecar Baseline 최종 Evidence | [docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md](docs/evidence/performance/2026-07-27-canonical-sidecar-baseline-final.md) |
 | Ambient Baseline 최종 Evidence | [docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md](docs/evidence/performance/2026-07-29-canonical-ambient-baseline-final.md) |
 | Waypoint 진단·해결 체크포인트 | [docs/checkpoints/phase-07-p1-waypoint-blocked.md](docs/checkpoints/phase-07-p1-waypoint-blocked.md) |
+| Waypoint 정식 baseline 최종 Evidence | [docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md](docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md) |
 | Replica-scaling 방향성 연구 Evidence | [docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md](docs/evidence/performance/2026-07-29-replica-scaling-directional-study.md) |
 | Phase 8 profile 간 통계 비교 Evidence | [docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
 | Phase 9 mTLS DISABLE 실험 결정 | [ADR-0028](docs/decisions/0028-phase9-sidecar-mtls-disable-experiment.md) |

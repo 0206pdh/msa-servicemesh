@@ -77,9 +77,14 @@
       한때 "버전 독립적 비호환"으로 오판했던 것은 잘못된 추론이었음을 확인·정정했다
       (`phase-07-p1-waypoint-blocked`의 "최종 해결" 절 참고). 20/20·50/50 soak 테스트와 Waypoint 자체
       rq_total 증가로 실제 트래픽 통과를 검증했다
-- [ ] replica/queue/saturation 측정 — 정식 반복측정 진행 예정
-- [ ] 적용 범위별 비용 Evidence — Waypoint 자원 수집 구현 완료(`resources.waypoint`), 측정 진행 예정
-- [ ] Phase 7 Evidence — **진행 중**, nominal/high/near-saturation 정식 반복측정 착수
+- [x] replica/queue/saturation 측정 — nominal/high/near-saturation 정식 15회씩 완료(전부
+      `INCONCLUSIVE_MAX_RUNS`, Sidecar와 같은 패턴)
+- [x] 적용 범위별 비용 Evidence — Waypoint 자원 실측 완료(request당 CPU 0.0014~0.0016 core-s, 메모리
+      peak ~45MB)
+- [x] Phase 7 Evidence — **완료** (`2026-08-01-canonical-waypoint-baseline-final.md`). 핵심 발견:
+      network bytes/request는 세 조건 모두 Ambient와 Sidecar 사이(No-Mesh 대비 +16~18%, Ambient
+      +1~2%/Sidecar +49%와 대비). latency는 nominal/high에서 세 profile 대비 일관되게 유의하게 느리지만
+      near-saturation에서는 차이가 사라짐(원인 미규명, Phase 9 후보)
 
 ## Phase 8 — 병목 분석
 
