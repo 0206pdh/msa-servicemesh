@@ -126,7 +126,7 @@ def run_pod_kill_repeat(root: Path, repeat: int, kubeconfig: str | None = None) 
     command = _k6_command(runner, spec, output, container_name)
     started = now()
     process = subprocess.Popen(command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True)
+                                text=True, encoding="utf-8", errors="replace")
 
     time.sleep(POD_KILL_AFTER_SECONDS)
     kill_info = kill_target_pod(POD_KILL_NAMESPACE, POD_KILL_TARGET_LABEL, kubeconfig)
