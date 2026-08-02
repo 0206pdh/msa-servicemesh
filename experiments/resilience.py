@@ -72,15 +72,20 @@ def kill_target_pod(namespace: str, label_selector: str, kubeconfig: str | None)
 
 
 def error_rate_timeseries(adapter: KubernetesAdapter, start_iso: str, end_iso: str,
-                           step_seconds: int = 5) -> list[dict]:
+                           step_seconds: int = 10) -> list[dict]:
+    # rate()'s range must comfortably exceed the ServiceMonitor scrape interval
+    # (15s, see deploy/charts/meshperf/values.yaml's serviceMonitor.interval) or
+    # most evaluation points have fewer than 2 samples and rate() returns
+    # nothing at all -- confirmed empirically: a 10s window returned zero
+    # points end to end, 30s did not.
     from datetime import datetime
     start = datetime.fromisoformat(start_iso.replace("Z", "+00:00")).timestamp()
     end = datetime.fromisoformat(end_iso.replace("Z", "+00:00")).timestamp()
     response = adapter.prometheus_query_range(
         'sum(rate(http_server_requests_seconds_count{namespace="benchmark",'
-        'uri="/api/v1/workloads/chain",outcome!="SUCCESS"}[10s])) / '
+        'uri="/api/v1/workloads/chain",outcome!="SUCCESS"}[30s])) / '
         'clamp_min(sum(rate(http_server_requests_seconds_count{namespace="benchmark",'
-        'uri="/api/v1/workloads/chain"}[10s])), 0.001)',
+        'uri="/api/v1/workloads/chain"}[30s])), 0.001)',
         start, end, step_seconds,
     )
     series = adapter._matrix(response)
@@ -141,7 +146,7 @@ def run_pod_kill_repeat(root: Path, repeat: int, kubeconfig: str | None = None) 
     result = {
         "runId": spec["runId"], "repeat": repeat, "window": {"start": started, "end": ended},
         "killInfo": kill_info, "k6ExitCode": process.returncode,
-        "overallErrorRate": k6_summary.get("metrics", {}).get("http_req_failed", {}).get("values", {}).get("rate"),
+        "overallErrorRate": k6_summary.get("metrics", {}).get("http_req_failed", {}).get("value"),
         "peakErrorRateDuringFault": peak_error_rate,
         "recoverySeconds": recovery,
         "errorRateTimeseries": error_series,
