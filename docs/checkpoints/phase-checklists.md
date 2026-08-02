@@ -119,8 +119,15 @@
 - [x] 실패한 개선도 Evidence 보존 — 실험 1의 핵심 가설("mTLS가 Sidecar network-bytes 오버헤드의 주 원인")은
       기각됨(전체 오버헤드의 ~3%만 mTLS 기여). 조작 없이 기각 결과 그대로 보존
       (`docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md`)
-- [ ] Phase 9 결론 validated/rejected — 실험 1 완료(가설 기각), 실험 2(ztunnel latency 정식 확인)와 실험
-      3(mesh 비용의 proxy/network 계층 국한 — Phase 8에서 이미 확인된 부정 결과, 신규 실험 불필요) 남음
+- [x] 실험 2(ADR-0029) 완료: Ambient replica 1 vs 4, nominal 고정, replica=4 10회
+      `STOP_PRECISION_REACHED`. p99 latency 저하는 방향 확인(유의, +20%)됐지만 ADR-0027 방향성 연구가
+      시사한 크기(+95%)는 재현 안 됨. ztunnel 메모리는 오히려 방향성 연구와 반대로 유의하게 증가(+79%,
+      "확정 결론 아님, 추가 조사 필요"로 기록). ztunnel CPU 증가는 재현 안 됨. Istio 버전 confound
+      있음(사전에 ADR-0029에서 수용) (`docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md`)
+- [x] 실험 3은 Phase 8에서 이미 9/9 비교로 확인된 부정 결과(mesh 비용이 proxy/network 계층에 국한)라
+      신규 실험 불필요로 결론
+- [x] Phase 9 결론 validated — 실험 1(가설 기각) + 실험 2(방향 부분 확인, 크기 불일치) + 실험 3(Phase 8
+      재확인으로 충분)으로 Phase 9 종료
 
 ## Phase 10 — 회복탄력성
 

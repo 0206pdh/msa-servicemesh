@@ -4,7 +4,7 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-08-01 · **진행 상태**: Phase 4~7 완료(Waypoint 정식 측정 포함), replica-scaling 방향성 연구 완료, Phase 8 완료, Phase 9 개선 실험 1 완료(가설 기각) · 실험 2(Ambient replica=4) 진행 중 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-08-02 · **진행 상태**: Phase 4~9 완료(Waypoint 정식 측정, mTLS/replica-scaling 개선 실험 포함), Phase 10(회복탄력성) 착수 예정 · **시작일**: 2026-07-22
 
 ---
 
@@ -209,7 +209,7 @@ Experiment Runner (Python)
 | 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
 | 7 | Ambient + Waypoint 기준선 | ✅ 완료(§6.5) |
 | 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
-| 9 | 개선안별 단일 변수 실험 | 🔄 실험 1 완료(가설 기각, §6.8), 실험 2 진행 예정 |
+| 9 | 개선안별 단일 변수 실험 | ✅ 완료 (§6.8~6.9) |
 | 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
 | 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
 
@@ -574,6 +574,33 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 
 전체 Evidence: [2026-07-30 Phase 9 mTLS-disable experiment](docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md)
 
+### 6.9 Phase 9 개선 실험 2 — Ambient replica 확장, 방향은 확인·크기는 불일치 (2026-08-02)
+
+§6.6 방향성 연구가 3회 반복만으로 관찰했던 "Ambient는 replica가 늘수록 latency가 나빠진다"를 이번엔
+정식 10회 반복(bootstrap CI)으로 재확인했다. orchestrator-service를 1replica(기존 Phase 6 데이터
+재사용)와 4replica(신규 측정)로 비교했다.
+
+| 지표 | replica=1 | replica=4 | 변화 | 유의성 |
+|---|---:|---:|---:|---|
+| p99 latency | 39.50 ms | 47.40 ms | **+20%** | 유의 |
+| p95 latency | 30.08 ms | 32.63 ms | +8% | 유의하지 않음 |
+| ztunnel 메모리 | 16.9 MB | 30.25 MB | **+79%** | 유의 |
+| ztunnel CPU | 82.44 core-s | 83.16 core-s | +1% | 유의하지 않음 |
+
+**p99 저하 방향은 확인됐지만, 크기는 방향성 연구가 시사했던 것과 크게 달랐다.** ADR-0027의 3회 반복
+데이터는 p99가 거의 2배(+95%) 나빠지는 것으로 나왔는데, 이번 정식 측정은 +20%에 그쳤다. 더 놀라운 건
+**ztunnel 메모리다** — 방향성 연구는 "메모리는 거의 안 변한다"(+2%)는 게 핵심 결론 중 하나였는데,
+정식 측정에서는 오히려 79%나 늘어서 정반대 방향이 나왔다. 측정 창 길이(방향성 연구는 180초, 이번은
+정식 2,525초)나 Istio 버전 차이(1.30.3 vs 1.29.6, 이 프로젝트에서 두 번째로 마주친 같은 종류의
+confound) 중 무엇이 원인인지는 이 데이터만으로 가릴 수 없어 "추가 조사가 필요한 신호"로만 기록했다.
+
+이 결과는 그 자체로 방법론적으로 중요한 사례다 — **빠른 3회 반복 방향성 연구는 "뭔가 있다"는 신호는
+정확히 잡아냈지만("p99가 나빠진다"는 방향), 정확한 크기나 다른 지표(메모리)에 대한 결론까지는 신뢰할
+수 없다는 것을 이 프로젝트 스스로 증명한 셈이다.** 방향성 연구를 정식 결론처럼 취급하지 않아야 하는
+이유가 추상적 원칙이 아니라 실제 데이터로 확인된 순간이다.
+
+전체 Evidence: [2026-08-02 Phase 9 Ambient replica-scaling formal](docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -700,8 +727,8 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 | 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | ✅ 완료(§6.5) |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
-| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | 🔄 실험 1 완료(§6.8), 실험 2 진행 중 |
-| 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | Phase 9 반영 |
+| 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | ✅ 완료 (§6.8~6.9) |
+| 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | 🔄 범위 설계 완료(ADR-0030), 측정 착수 예정 |
 | 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
 
 `[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
@@ -761,6 +788,9 @@ p99 +18.9ms). 그런데 이 결과를 보고하기 전에, 비교 대상으로 �
 | Phase 8 profile 간 통계 비교 Evidence | [docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md](docs/evidence/performance/2026-07-30-phase8-cross-profile-comparison.md) |
 | Phase 9 mTLS DISABLE 실험 결정 | [ADR-0028](docs/decisions/0028-phase9-sidecar-mtls-disable-experiment.md) |
 | Phase 9 mTLS DISABLE 실험 Evidence | [docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md](docs/evidence/performance/2026-07-30-phase9-mtls-disable-experiment.md) |
+| Phase 9 Ambient replica-scaling 정식 실험 결정 | [ADR-0029](docs/decisions/0029-phase9-ambient-replica-scaling-formal-experiment.md) |
+| Phase 9 Ambient replica-scaling 정식 실험 Evidence | [docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md](docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md) |
+| Phase 10 회복탄력성 범위 결정 | [ADR-0030](docs/decisions/0030-phase10-resilience-scope.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

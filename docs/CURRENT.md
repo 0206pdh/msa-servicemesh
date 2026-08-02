@@ -5,15 +5,14 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: **Phase 7 Waypoint 완료(2026-08-01)** — NetworkPolicy 템플릿 버그(HBONE 15008 포트 누락)
-  해결 후 nominal/high/near-saturation 정식 반복측정(각 15회) 완료. 핵심 발견: network bytes/request가
-  Ambient·Sidecar 사이(No-Mesh 대비 +16~18%), latency는 nominal/high에서 일관되게 유의하게 느리지만
-  near-saturation에서 차이 소멸. Phase 9는 실험 1(Sidecar mTLS DISABLE) 완료(가설 기각), 실험 2(Ambient
-  replica=4 정식 확인) 재개함
-- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, orchestrator-service 4 replica로
-  전환, Waypoint 라우팅 제거)
-- Status: phase-7-done-phase-9-experiment-2-resumed
-- Last updated: 2026-08-01
+- Overall Phase: **Phase 9 완료(2026-08-02)** — 실험 1(Sidecar mTLS DISABLE, 가설 기각) + 실험 2(Ambient
+  replica 1 vs 4, p99 저하 방향 확인되나 크기는 방향성 연구와 불일치, ztunnel 메모리는 반대 방향으로
+  유의) + 실험 3(Phase 8 재확인으로 충분, 신규 실험 불필요)으로 종료. Phase 10(회복탄력성) 설계 완료
+  (ADR-0030), 착수 예정
+- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6). orchestrator-service는 Phase 9 실험
+  종료 후 1 replica로 원복 예정
+- Status: phase-9-done-phase-10-ready
+- Last updated: 2026-08-02
 
 ## 완료된 기준점
 
@@ -134,16 +133,25 @@
       (`docs/evidence/performance/2026-08-01-canonical-waypoint-baseline-final.md`)
 - [x] Phase 7 Evidence validated — Phase 7 완료
 - [x] 클러스터를 Waypoint→순수 Ambient로 복구, orchestrator-service를 4 replica로 전환해 Phase 9 실험 2 재개
+- [x] Phase 9 실험 2(ADR-0029) 완료(2026-08-02): replica=4 10회 `STOP_PRECISION_REACHED`. p99 저하 방향은
+      확인(유의, +20%)됐지만 ADR-0027 방향성 연구의 크기(+95%)는 재현 안 됨. ztunnel 메모리는 방향성
+      연구와 반대로 유의하게 증가(+79%, "추가 조사 필요"로 기록). ztunnel CPU 증가는 재현 안 됨
+      (`docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md`)
+- [x] Phase 9 결론 validated — 실험 1·2·3 종합해 Phase 9 종료
+- [x] Phase 10 범위 설계(ADR-0030): Chaos Mesh는 자원 위험 대비 불필요하다고 판단해 배제, Pod
+      kill(kubectl)과 chain-wide delay(기존 파라미터)로 축소. `experiments/resilience.py`(pod-kill,
+      Prometheus 기반 recovery-time 계산) 구현·테스트 완료. `hop_delay_ms` 파라미터를
+      discovery_spec/formal_spec/BaselineMeasurement에 추가(기존 fingerprint 불변 확인)
 
 ## 다음 작업
 
-1. **Phase 9 실험 2(Ambient replica=4) 진행 중**: orchestrator-service 4 replica, nominal 조건, 10~15회
-   정식 반복측정 재개함(`phase9-ambient-replica4`). 완료되면 Phase 6 canonical(replica=1)과 비교.
-2. Phase 9 실험 3(mesh 비용이 proxy/network 계층에 국한된다는 가설)은 Phase 8에서 이미 9/9 비교로 확인된
-   부정 결과이므로 신규 실험이 필요한지 재검토 — 불필요하다고 결론 나면 Phase 9는 실험 1·2로 마무리한다.
-3. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘은 미규명 — Phase 9 후속 실험 후보로
-   기록해뒀다(정밀도 부족 때문인지, 실제 현상인지 구분 필요).
-4. 위 작업 종합 후 Phase 10(회복탄력성)으로 진행한다.
+1. **Phase 10 착수(ADR-0030)**: Pod kill(orchestrator-service, `experiments/resilience.py` 구현 완료)과
+   chain-wide delay(`hop_delay_ms` 파라미터 구현 완료) 두 fault로 범위를 좁혀 정식 반복측정을 시작한다.
+2. Pod-kill 실험 전에 orchestrator-service를 1 replica로 원복하고(Phase 9 실험 2가 4로 바꿔둔 상태),
+   클러스터가 다른 canonical 측정과 같은 조건인지 재확인한다.
+3. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘과 ztunnel 메모리가 replica 확장에
+   따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명 — Phase 10/11 이후 후속 과제로 기록한다.
+4. Phase 10 완료 후 Phase 11(최종화): 선택 Matrix, 새 환경 재현, 최종 보고서.
 
 ## 현재 한계
 
@@ -249,6 +257,9 @@
 - 클러스터: Waypoint 라우팅 제거, 순수 Ambient 복구, orchestrator-service 4 replica로 전환(scrape targets
   10 확인)
 - Git: Phase 7 최종 Evidence 커밋 예정
+- Phase 9 실험 2: replica=4 10회 `STOP_PRECISION_REACHED`, replica1 vs replica4 비교 완료
+- Python 전체 unittest: 43 passed (resilience.py 테스트 4개, hop_delay_ms 테스트 2개 포함)
+- Git: Phase 10 스코프(ADR-0030) + resilience.py `5f14c6d`, Phase 9 실험 2 Evidence 커밋 예정
 
 ## 재개 절차
 
