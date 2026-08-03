@@ -5,23 +5,21 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: Phase 9 완료. **Phase 10 데이터 수집 완료, Evidence 작성 전 단계**:
-  - pod-kill(`experiments/resilience.py`, orchestrator-service): 10/10회 완료(2026-08-02) —
-    `results/phase10-pod-kill-orchestrator/repeat-01~10`, recovery 29.9~39.9초, peakErrorRate 38~73%
-  - chain-wide delay(`hop_delay_ms=50`, nominal 8 RPS): 3세션×5블록=15/15회 완료(2026-08-03) —
-    `results/phase10-chain-delay-50ms*`, state.json 최종 `SESSION_COMPLETED`이나 `cpuCoreSecondsPerRequest`
-    정밀도는 15회 상한에도 미수렴(`observedRelative` 10.6% vs 기준 5%/절대 0.01) — 기존 phase들의
-    `INCONCLUSIVE_MAX_RUNS`와 같은 패턴, 재측정 불필요하고 이 한계를 명시한 채 Evidence로 보고
-  - 둘 다 정전 **이전에** 완료됨 — 아래 인시던트와 무관하게 데이터 자체는 유효함
-- **2026-08-03 인시던트**: 호스트 전원 손실로 VM 3대 비정상 종료 → `mesh-cp-01`의 etcd 데이터
+- Overall Phase: **Phase 10 완료(2026-08-03)** — pod-kill(10/10) + chain-wide delay(50ms/hop, 15회
+  중 11 valid, `SESSION_COMPLETED`)로 종료. 두 fault 모두 Ambient에서 "에러 없이 자동 복구되거나
+  성공률 유지한 채 latency만 예측 가능하게 증가"하는 패턴 확인(cross-profile 비교는 범위 밖, Ambient만
+  측정). chain-delay before/after 사이 Istio 버전 confound(1.30.3/1.29.6) 발견해 명시
+  (`docs/evidence/performance/2026-08-03-phase10-resilience-results.md`). **Phase 11(최종화) 착수
+  전 단계**
+- **2026-08-03 인시던트(해결됨)**: 호스트 전원 손실로 VM 3대 비정상 종료 → `mesh-cp-01`의 etcd 데이터
   손상(bbolt backend consistent-index 손실, snapshot 복구용 `.snap.db` 부재로 panic). 사용자 승인 하에
   `/var/lib/etcd` 백업(`mesh-cp-01:/tmp/etcd-backup-20260803T015518Z.tar.gz`) 후 kubeadm
   reset+init으로 클러스터 전체 재부트스트랩, Cilium 1.19.6부터 Ambient(Istio 1.29.6)까지 전체 스택
-  재설치 완료(2026-08-03). 측정 결과(`results/`, git 커밋)는 클러스터와 독립적으로 보존되어 영향 없음.
-  재구축 상세는 아래 "마지막 검증" 참고
+  재설치 완료(2026-08-03, Phase 10 측정 데이터는 인시던트 이전에 이미 완료되어 영향 없음). 재구축
+  상세는 아래 "마지막 검증" 참고
 - Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, 재설치본). orchestrator-service
   1 replica
-- Status: phase-10-data-collected-evidence-pending
+- Status: phase-10-done-phase-11-next
 - Last updated: 2026-08-03
 
 ## 완료된 기준점
@@ -155,12 +153,14 @@
 
 ## 다음 작업
 
-1. **Phase 10 Evidence 작성**: pod-kill(10/10) + chain-wide delay(15/15, `SESSION_COMPLETED`이나
-   cpuCoreSecondsPerRequest 정밀도 미수렴)를 분석해 `docs/evidence/performance/`에 결과 문서를 쓰고
-   ADR-0030에 결과를 반영한 뒤 Phase 10을 종료한다. 데이터는 이미 `results/`에 있음 — 재측정 불필요.
+1. **Phase 11(최종화) 착수**: workload별 선택 Matrix, raw→summary→graph→claim 연결, 새 환경 대표
+   재현, 적용 범위와 외삽 금지 조건, 최종 Evidence와 보고서. `docs/checkpoints/phase-checklists.md`의
+   Phase 11 체크리스트 참고.
 2. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘과 ztunnel 메모리가 replica 확장에
-   따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명 — Phase 10/11 이후 후속 과제로 기록한다.
-3. Phase 10 Evidence 완료 후 Phase 11(최종화): 선택 Matrix, 새 환경 재현, 최종 보고서.
+   따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명 — Phase 11 최종 보고서에 후속 과제로
+   기록한다.
+3. Phase 11 최종 보고서에는 이 프로젝트 전체에서 반복된 Istio 버전 confound(ADR-0028/0029, Phase 10
+   chain-delay)를 종합해서 명시해야 한다.
 
 ## 현재 한계
 
@@ -293,6 +293,11 @@
   재구축으로 인한 새 문제 아님)
 - etcd 백업 보존 위치: `mesh-cp-01:/tmp/etcd-backup-20260803T015518Z.tar.gz`(복구 실패 시 참고용,
   손상된 데이터라 재사용 불가 — 새 etcd는 완전히 새로 부트스트랩됨)
+- Phase 10 Evidence 작성 완료: pod-kill 10/10 valid(`k6ExitCode=0` 전부), chain-delay 11/15 valid
+  `SESSION_COMPLETED`. 비교 산출물 `results/phase10-comparison/nominal-vs-chain-delay-50ms.json`
+  SHA-256 `70322ebdc3ae0a41b321b40ad2e8949ddc7ef049f647eb1d7a97c73a1391b5b4`
+- Python 전체 unittest: 43 passed (재구축/Evidence 작성으로 인한 회귀 없음)
+- Git: Phase 10 Evidence 커밋 예정
 
 ## 재개 절차
 

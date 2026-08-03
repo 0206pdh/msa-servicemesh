@@ -131,11 +131,19 @@
 
 ## Phase 10 — 회복탄력성
 
-- [ ] bounded fault와 자동 cleanup
-- [ ] 동일 fault schedule before/after
-- [ ] 성공률/amplification/recovery 측정
-- [ ] 정상화와 잔여 영향 검사
-- [ ] Phase 10 Evidence measured
+- [x] bounded fault와 자동 cleanup — pod kill(kubectl delete, Deployment 자동 재생성)과 chain-wide
+      delay(work.delayMs, 실험 종료 후 정상값 1ms로 원복 확인) 둘 다 별도 인프라 없이 bounded, 자동 정리
+- [x] 동일 fault schedule before/after — pod-kill은 run 내 kill 전/후 구간 비교, chain-delay는 Phase 6
+      canonical nominal baseline(delay=1ms) 대비 정식 10+회 비교
+- [x] 성공률/amplification/recovery 측정 — pod-kill: recovery 29.9~39.9초, peak error rate 37.5~73.3%.
+      chain-delay: errorRate 0(둘 다), latency +160~167ms(injected 150ms와 근접)
+- [x] 정상화와 잔여 영향 검사 — pod-kill 자동 복구 확인, chain-delay 종료 후 정상 파라미터 SYNC_CHAIN
+      재확인
+- [x] Phase 10 Evidence measured
+      (`docs/evidence/performance/2026-08-03-phase10-resilience-results.md`) — Network delay/loss,
+      Kafka worker stop/restart, hop 단위 격리 fault(`armFault` API)는 ADR-0030에서 사전에 범위 밖으로
+      명시, cross-profile 비교 안 함(Ambient만), Istio 버전 confound(chain-delay before 1.30.3/after
+      1.29.6) 발견해 명시
 
 ## Phase 11 — 최종화
 
