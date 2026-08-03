@@ -5,12 +5,14 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: **Phase 10 완료(2026-08-03)** — pod-kill(10/10) + chain-wide delay(50ms/hop, 15회
-  중 11 valid, `SESSION_COMPLETED`)로 종료. 두 fault 모두 Ambient에서 "에러 없이 자동 복구되거나
-  성공률 유지한 채 latency만 예측 가능하게 증가"하는 패턴 확인(cross-profile 비교는 범위 밖, Ambient만
-  측정). chain-delay before/after 사이 Istio 버전 confound(1.30.3/1.29.6) 발견해 명시
-  (`docs/evidence/performance/2026-08-03-phase10-resilience-results.md`). **Phase 11(최종화) 착수
-  전 단계**
+- Overall Phase: **Phase 0~11 전체 완료(2026-08-03)**. Phase 10: pod-kill(10/10) + chain-wide
+  delay(50ms/hop, 15회 중 11 valid, `SESSION_COMPLETED`)로 종료 — 두 fault 모두 Ambient에서 "에러
+  없이 자동 복구되거나 성공률 유지한 채 latency만 예측 가능하게 증가"하는 패턴 확인(cross-profile
+  비교는 범위 밖, Ambient만 측정), chain-delay before/after 사이 Istio 버전 confound(1.30.3/1.29.6)
+  발견해 명시(`docs/evidence/performance/2026-08-03-phase10-resilience-results.md`). Phase 11:
+  워크로드별 선택 Matrix(8개 시나리오), manifest→raw→summary→claim 링크 감사(11/11 해시 일치, 깨진
+  링크 없음), 새 환경 재현(아래 인시던트 복구가 실제 증거로 충족), 적용 범위·외삽 금지 조건, 가설별
+  최종 결과와 결론까지 `PORTFOLIO.md`에 전부 반영해 프로젝트 종료 — 남은 `[TODO]` 없음
 - **2026-08-03 인시던트(해결됨)**: 호스트 전원 손실로 VM 3대 비정상 종료 → `mesh-cp-01`의 etcd 데이터
   손상(bbolt backend consistent-index 손실, snapshot 복구용 `.snap.db` 부재로 panic). 사용자 승인 하에
   `/var/lib/etcd` 백업(`mesh-cp-01:/tmp/etcd-backup-20260803T015518Z.tar.gz`) 후 kubeadm
@@ -19,7 +21,7 @@
   상세는 아래 "마지막 검증" 참고
 - Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, 재설치본). orchestrator-service
   1 replica
-- Status: phase-10-done-phase-11-next
+- Status: project-complete-phase-0-to-11
 - Last updated: 2026-08-03
 
 ## 완료된 기준점
@@ -153,14 +155,19 @@
 
 ## 다음 작업
 
-1. **Phase 11(최종화) 착수**: workload별 선택 Matrix, raw→summary→graph→claim 연결, 새 환경 대표
-   재현, 적용 범위와 외삽 금지 조건, 최종 Evidence와 보고서. `docs/checkpoints/phase-checklists.md`의
-   Phase 11 체크리스트 참고.
+**Phase 0~11 전체 완료 — 이 프로젝트의 정식 범위 안에서는 남은 작업이 없다.** 후속 과제(다음에 이
+프로젝트를 재개하거나 확장한다면):
+
+1. `PORTFOLIO.md` §2/§11에 명시한 미측정 가설 3개(retry amplification, time-budget/단일 retry owner
+   개선, CPU HPA vs queue-lag 지표) — 장애 전파/복구의 소유권을 바꾸는 아키텍처 실험이라 이번 범위에서
+   의도적으로 제외했다.
 2. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘과 ztunnel 메모리가 replica 확장에
-   따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명 — Phase 11 최종 보고서에 후속 과제로
-   기록한다.
-3. Phase 11 최종 보고서에는 이 프로젝트 전체에서 반복된 Istio 버전 confound(ADR-0028/0029, Phase 10
-   chain-delay)를 종합해서 명시해야 한다.
+   따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명으로 남아있다(`PORTFOLIO.md` §8.4).
+3. kafka/producer/worker의 Ambient HBONE 타임아웃(SYNC_CHAIN 범위 밖, 여러 번 재확인된 기존 한계) —
+   비동기 파이프라인을 정식 측정 범위에 넣으려면 먼저 해결해야 한다.
+4. Network delay/loss, Kafka worker stop/restart, hop 단위로 격리된 fault(`armFault` API 구현),
+   그리고 pod-kill/chain-delay를 Sidecar/No-Mesh/Waypoint에서도 측정하는 cross-profile 회복탄력성
+   비교 — ADR-0030에서 범위 밖으로 명시.
 
 ## 현재 한계
 
@@ -297,7 +304,12 @@
   `SESSION_COMPLETED`. 비교 산출물 `results/phase10-comparison/nominal-vs-chain-delay-50ms.json`
   SHA-256 `70322ebdc3ae0a41b321b40ad2e8949ddc7ef049f647eb1d7a97c73a1391b5b4`
 - Python 전체 unittest: 43 passed (재구축/Evidence 작성으로 인한 회귀 없음)
-- Git: Phase 10 Evidence 커밋 예정
+- Git: Phase 10 Evidence `2aa884c`
+- Phase 11 완료: `PORTFOLIO.md`에 선택 Matrix(§8.3), 적용 범위(§8.4), 재현성 검증(§8.1, 2026-08-03
+  재구축을 증거로 사용), 링크 감사(§8.2, compare_profiles.py 산출물 11/11 해시 일치), 가설별 최종
+  결과(§2), 배운 점(§10), 결론(§11) 전부 반영. `docs/checkpoints/phase-checklists.md` Phase 11 항목
+  전부 체크
+- 프로젝트 Phase 0~11 전체 완료 — 남은 작업은 모두 명시적 후속 과제로 분류(위 "다음 작업" 참고)
 
 ## 재개 절차
 

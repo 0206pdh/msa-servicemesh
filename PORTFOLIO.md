@@ -4,7 +4,8 @@
 > 실험 방법론과 세부 근거의 원본은 `docs/` 아래 문서와 ADR을 따른다. 이 문서는 프로젝트가 진행됨에 따라
 > 계속 갱신되며, 아직 실행하지 않은 구간은 `[TODO: ...]`로 표시했다.
 >
-> **마지막 갱신**: 2026-08-02 · **진행 상태**: Phase 4~9 완료(Waypoint 정식 측정, mTLS/replica-scaling 개선 실험 포함), Phase 10(회복탄력성) 착수 예정 · **시작일**: 2026-07-22
+> **마지막 갱신**: 2026-08-03 · **진행 상태**: Phase 0~11 전체 완료(Waypoint 정식 측정, mTLS/replica-scaling
+> 개선 실험, pod-kill/chain-delay 회복탄력성 실험, 선택 Matrix와 최종 결론 포함) · **시작일**: 2026-07-22
 
 ---
 
@@ -111,7 +112,22 @@ profile은 이미 포화 구간에서, 어떤 profile은 여유 구간에서 측
 5. 선택적 Waypoint와 telemetry sampling은 필요한 기능을 유지하며 비용을 줄일 수 있다.
 6. CPU 기반 HPA는 비동기 backlog에 적합하지 않고 queue lag 지표가 회복시간을 줄일 수 있다.
 
-`[TODO: Phase 5~10 완료 후 가설별 채택/기각 결과와 근거 Evidence 링크를 여기에 채운다]`
+### 가설별 최종 결과 (Phase 4~10 완료 후)
+
+| # | 가설 | 결과 | 근거 |
+|---:|---|---|---|
+| 1 | Sidecar의 Pod별 비용과 Ambient의 노드 공유 비용은 Pod 수 증가 시 다른 형태로 확장된다 | **확인됨** | 메모리: Sidecar 120→173MiB(+44%, Pod별 선형), Ambient(ztunnel) 15.8→16.1MiB(+2%, 방향성 연구 §6.6)로 확장 형태 자체가 다르다. 단 latency/CPU 축에서는 이야기가 더 복잡하다 — Ambient도 정식 측정(§6.9)에서 replica 확장 시 p99 +20%(유의), ztunnel 메모리도 오히려 +79%로 늘어(방향성 연구와 반대) "Ambient는 replica가 늘어도 비용이 거의 안 붙는다"는 단순한 그림은 아니다 |
+| 2 | Waypoint는 L7 기능을 제공하지만 통과 트래픽과 replica에 따라 병목이 될 수 있다 | **부분 확인** | nominal/high 부하에서 세 profile보다 일관되게 느림(§6.5) — "병목이 될 수 있다"는 확인됐다. 다만 near-saturation에서는 차이가 사라져(원인 미규명) 부하 축의 전체 그림은 불완전하고, **replica 축은 아예 측정하지 않았다**(Waypoint는 이 프로젝트에서 항상 replica=1로만 측정) |
+| 3 | 앱과 Mesh의 중첩 retry는 장애 중 호출량과 tail latency를 증폭한다 | **미측정** | ADR-0030에서 hop 단위 fault(`armFault` API)를 범위 밖으로 명시적으로 제외했고, 이 앱/Mesh 어느 쪽에도 retry 정책이 구성되어 있지 않다 — retry amplification을 측정할 대상 자체가 없었다. Phase 11 이후 후속 과제 |
+| 4 | 전체 time budget과 단일 retry owner는 회복탄력성을 개선한다 | **미측정** | 애플리케이션에 `X-Request-Deadline-Epoch-Ms` 헤더(전체 time budget)는 이미 구현돼 있지만, 이를 "단일 retry owner" 아키텍처와 비교하는 개선 실험은 이번 범위에 포함하지 않았다. 후속 과제 |
+| 5 | 선택적 Waypoint와 telemetry sampling은 필요한 기능을 유지하며 비용을 줄일 수 있다 | **부분 확인**(선택적 Waypoint만) | 선택적 경로(단일 hop) Waypoint의 network bytes가 Ambient·Sidecar 사이(+16~18%)로, 전체 Sidecar(+49%)보다 확실히 저렴하다는 것은 확인됐다(§6.5). **telemetry sampling 축은 아예 실험하지 않았다** — trace/metric sampling rate를 바꾼 개선 실험은 이번 범위 밖 |
+| 6 | CPU 기반 HPA는 비동기 backlog에 적합하지 않고 queue lag 지표가 회복시간을 줄일 수 있다 | **미측정** | Kafka 비동기 파이프라인은 E2E 스모크만 확인했고 정식 반복측정하지 않았다(Phase 9 범위에서 제외, §6.7 참고). HPA/autoscaling 실험 자체를 이번 프로젝트에서 하지 않았다. 후속 과제 — 게다가 Ambient의 kafka/producer/worker HBONE 연결이 타임아웃되는 알려진 미해결 문제도 있어(§8.4), 이 축을 측정하려면 그 문제부터 해결해야 한다 |
+
+**종합**: 6개 가설 중 1개는 확인, 2개는 부분 확인(제공된 기능의 절반만 검증), 3개는 이번 프로젝트
+범위에서 아예 측정하지 않았다 — 이는 실패가 아니라 **범위를 의도적으로 좁힌 결과**다(ADR-0030 등에서
+사전에 명시). 미측정 가설 3개는 모두 "장애 전파/복구 메커니즘 자체를 바꾸는 개선"(retry 소유권, HPA
+지표 교체)이라는 공통점이 있다 — 이번 프로젝트는 "profile 선택과 설정 조정"까지는 정식으로 답했지만,
+"애플리케이션/오케스트레이션 아키텍처를 바꾸는 개선"은 후속 프로젝트의 영역으로 남는다.
 
 ---
 
@@ -206,12 +222,12 @@ Experiment Runner (Python)
 | 3 | VMware 3노드 Kubernetes, Cilium, 관측 스택, NetworkPolicy | ✅ 완료 |
 | 4 | **No Mesh 기준선** — capacity discovery와 정식 반복측정 완료 | ✅ 완료 |
 | 5 | **Istio Sidecar 기준선** — 설치·mTLS 검증·정식 반복측정 완료 | ✅ 완료 |
-| 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica/node 확장 측정 잔여 | 🔄 부분 완료 |
+| 6 | **Ambient 기준선** — 고정 replica 정식 반복측정 완료, replica 확장은 §6.6/§6.9로 별도 완료 | ✅ 완료 |
 | 7 | Ambient + Waypoint 기준선 | ✅ 완료(§6.5) |
 | 8 | profile 비교와 병목 선정 | ✅ 완료 (통계 비교 + 시간축 분석 한계 기록, §6.7) |
 | 9 | 개선안별 단일 변수 실험 | ✅ 완료 (§6.8~6.9) |
-| 10 | 회복탄력성·Chaos 재검증 | `[TODO]` |
-| 11 | 최종 의사결정 Matrix·보고서 | `[TODO]` |
+| 10 | 회복탄력성 (pod-kill, chain-wide delay) | ✅ 완료 (§6.10) |
+| 11 | 최종 의사결정 Matrix·보고서 | ✅ 완료 (§8.1~8.4, §10, §11) |
 
 ### 5.1 Phase 4 세부 체크리스트
 
@@ -601,6 +617,42 @@ confound) 중 무엇이 원인인지는 이 데이터만으로 가릴 수 없어
 
 전체 Evidence: [2026-08-02 Phase 9 Ambient replica-scaling formal](docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md)
 
+### 6.10 Phase 10 회복탄력성 — Pod kill과 chain-wide delay (2026-08-02~03)
+
+Chaos Mesh는 이미 자원이 빠듯한 클러스터(Phase 7/9에서 무효율 30~45%)에 특권 DaemonSet을 더 얹는 위험이
+크다고 판단해 배제하고(ADR-0030), kubectl과 기존 앱 파라미터만으로 구현 가능한 두 fault로 범위를
+좁혔다 — **Ambient profile 하나만** 측정했다(cross-profile fault 비교는 범위 밖).
+
+**Pod kill**(orchestrator-service, 10/10회): nominal 8 RPS 부하 중 pod를 강제 종료하면 Deployment가
+자동으로 재생성한다. Recovery time은 중앙값 39.9초(29.9~39.92초)로, 이번 재구축 작업 중 실측한 이
+애플리케이션의 JVM 콜드스타트 시간(26~28초)과 잘 맞아 **recovery time은 사실상 새 Pod의 JVM 기동
+시간이 지배적**이라는 해석이 가장 설득력 있다. Fault 중 peak error rate는 37.5~73.3%로 컸는데, 이는
+replica=1 조건이기 때문이며(로드밸런서가 트래픽을 돌릴 다른 replica가 없음) "Ambient가 pod-kill에
+강하다"는 뜻이 아니라 "Kubernetes 자체의 self-healing이 mesh profile과 무관하게 작동한다"는 것만
+확인한다.
+
+**Chain-wide delay**(50ms/hop, 3-hop 전체, nominal 8 RPS, before=Phase 6 canonical 재사용): 15회 중
+11 valid, `SESSION_COMPLETED`. p95/p99가 각각 +160.7ms/+166.7ms(둘 다 유의) 늘었는데, 이는 injected
+delay(3×50ms=150ms)와 거의 정확히 일치한다. **핵심 발견은 errorRate가 before/after 둘 다 정확히
+0이라는 것** — chain 전체에 hop당 50ms 지연이 걸려도 SYNC_CHAIN은 연쇄 실패나 timeout 없이 요청을
+완주시켰다. CPU/request는 유의하게 늘었지만(+36.6%, 요청이 더 오래 자원을 점유하는 당연한 결과),
+memory는 유의한 차이가 없었다. **Ambient는 이 스트레스 조건에서 "성공률을 해치지 않고 latency만
+비례해서 늘어나는" 예측 가능한 성능 저하(graceful degradation) 패턴을 보였다.**
+
+Evidence 작성 중 이 프로젝트에서 **세 번째로 같은 종류의 Istio 버전 confound**(ADR-0028/0029와 동일
+패턴)를 발견했다 — chain-delay의 before(Phase 6, Istio 1.30.3)와 after(2026-08-02 측정, Istio 1.29.6)가
+서로 다른 버전이었다. `manifest.json`의 `createdAt` 타임스탬프로 직접 확인했다. p95/p99의 큰 폭(150ms대)은
+버전 차이로 설명하기 어렵지만, 정직하게 명시했다.
+
+**2026-08-03 정전 인시던트**: Phase 10 데이터 수집 완료 *직후* 호스트 전원 손실로 `mesh-cp-01`의 etcd가
+손상됐다(bbolt backend가 자신의 consistent-index를 잃고 존재하지 않는 snapshot 파일을 찾다 panic). 손상된
+데이터를 백업한 뒤 kubeadm reset+init부터 Cilium/MetalLB/observability/Istio Ambient까지 **클러스터
+전체를 처음부터 재구축**했다 — 이 복구 작업 자체가 뜻하지 않게 Phase 11이 요구하는 "새 환경에서 대표
+실험 재현" 요건을 실제 사고 상황에서 검증한 셈이 됐다(§8.1 참고). 측정 데이터 자체는 인시던트 이전에
+git에 안전하게 반영되어 영향받지 않았다.
+
+전체 Evidence: [2026-08-03 Phase 10 회복탄력성 결과](docs/evidence/performance/2026-08-03-phase10-resilience-results.md)
+
 ---
 
 ## 7. 엔지니어링 하이라이트 — 인프라를 만들며 부딪히고 해결한 문제
@@ -715,25 +767,121 @@ confound) 중 무엇이 원인인지는 이 데이터만으로 가릴 수 없어
     깊은 계층(설정 조회 → 패킷 캡처)으로 바꾸자마자 몇 달째 안 보이던 원인이 바로 보였다는 것 자체가,
     "안 보인다"와 "없다"를 구분해야 한다는 이 프로젝트의 원칙을 실제로 증명한 사례다.
 
-`[TODO: Phase 9 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
+19. **정전으로 손상된 etcd를 삭제 대신 원인 진단부터**: 2026-08-03 호스트 전원 손실 후 클러스터가 안
+    올라와서 조사해보니, etcd가 부팅 시 계속 panic하고 있었다. 로그를 끝까지 읽어 "bbolt 백엔드의
+    consistent-index가 0으로 읽히면서 존재하지 않는 snapshot 파일(`.snap.db`)로 복구를 시도하다 실패"라는
+    정확한 실패 지점을 확인한 뒤에야 복구가 불가능하다고 판단했고, 되돌리기 전에 손상된 데이터 자체를
+    먼저 백업했다(`tar czf`) — 복구 시도 중 추가 실수가 나더라도 원본을 보존해두는 것이 원칙이다.
+20. **kube-proxy 없는 클러스터에서 Cilium을 올릴 때의 부트스트랩 순환 문제를 실측으로 발견**: 재구축 중
+    `kubeProxyReplacement=true`로 Cilium을 처음 설치했더니 자기 자신도 못 뜨는 순환 문제가 생겼다 — Cilium의
+    설정용 init 컨테이너가 apiserver의 ClusterIP(10.96.0.1)로 접속을 시도하는데, 그 ClusterIP 자체가
+    kube-proxy나 Cilium의 데이터플레인이 있어야 라우팅되기 때문이다. `k8sServiceHost`/`k8sServicePort`를
+    실제 apiserver 주소로 명시해 이 순환을 끊었다 — 이론으로 알고 있던 문제를 실제로 겪고 나서야
+    수정 위치가 명확해졌다.
+21. **istio-cni가 계속 죽는 원인을 로그가 스스로 알려준 힌트로 해결**: Istio CNI DaemonSet이 계속
+    `NotReady`였는데, 로그에 "Cilium CNI가 감지됨, `cni.exclusive=false`를 확인하라"는 경고가 이미 있었다.
+    Cilium을 `cni.exclusive=false`로 재설치했지만 여전히 실패해서 더 파보니, 설정(ConfigMap)은 바뀌었지만
+    Cilium Pod 자체가 재시작되지 않아 새 설정을 읽지 않고 있었다 — DaemonSet을 수동으로 롤링 재시작한
+    뒤에야 해결됐다. "설정을 바꿨다"와 "그 설정이 실제로 적용됐다"를 항상 구분해서 검증해야 한다는
+    이 프로젝트의 반복된 교훈이 여기서도 그대로 적용됐다.
+22. **손으로 짠 스모크 테스트 페이로드가 만든 가짜 실패를 실제 버그와 구분**: 재구축 후 SYNC_CHAIN을
+    수동으로 검증하다 chain/fanout/payload/async 호출이 전부 400/500을 반환해서 처음엔 인프라 문제로
+    의심했다. 소스 코드(`ChainController`, `CorrelationIdFilter`)를 직접 읽어 `X-Correlation-Id`/
+    `X-Experiment-Run-Id` 헤더가 없으면 내부 hop 호출에서 실패한다는 것을 발견하고, 정식 k6 워크로드가
+    항상 이 헤더를 보낸다는 것도 확인했다 — 인프라를 더 건드리기 전에 "내 테스트 방법이 틀렸을 가능성"을
+    먼저 배제한 사례다.
+
+`[TODO: Phase 11 완료 이후 발견되는 새로운 엔지니어링 이슈를 계속 추가]`
 
 ---
 
-## 8. 남은 계획 (Phase 5~11)
+## 8. Phase 진행 이력 (Phase 5~11)
 
-| Phase | 목표 | 진입 조건 |
+| Phase | 목표 | 상태 |
 |---|---|---|
-| 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | 승인된 No Mesh baseline — ✅ 완료 |
-| 6. Ambient | ztunnel 공유 자원 귀속, replica/node 확장 반복 | Phase 5 완료 — 🔄 고정 replica 완료, 확장 반복 잔여 |
+| 5. Sidecar | injection/mTLS 검증, app/proxy 자원 분리, paired 10~15회 반복 | ✅ 완료 |
+| 6. Ambient | ztunnel 공유 자원 귀속, 고정 replica 반복 | ✅ 완료(고정 replica 범위, replica 확장은 §6.6/§6.9로 별도 수행) |
 | 7. Waypoint | 전체/선택 경로 분리, L7 기능·통과 성능 측정 | ✅ 완료(§6.5) |
 | 8. 병목 분석 | profile 간 절대/상대 차이, telemetry 기반 병목 3개 이상 확정 | ✅ 완료 (§6.7) |
 | 9. 개선 실험 | 병목별 단일 변수 개선안 3개 이상, before/after 10회+ 반복 | ✅ 완료 (§6.8~6.9) |
-| 10. 회복탄력성 | 동일 fault schedule로 before/after 장애 주입 재검증 | 🔄 범위 설계 완료(ADR-0030), 측정 착수 예정 |
-| 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | Phase 10 완료 |
+| 10. 회복탄력성 | pod-kill과 chain-wide delay before/after 측정 | ✅ 완료 (§6.10) |
+| 11. 최종화 | 워크로드별 선택 Matrix, 재현성 검증, 최종 보고서 | ✅ 완료 (§8.1, §8.2, §11) |
 
-`[TODO: Phase 9 개선안 목록과 채택/기각 결과]`
-`[TODO: Phase 10 장애 주입 시나리오와 회복 지표]`
-`[TODO: Phase 11 워크로드별 최종 선택 Matrix]`
+### 8.1 재현성 검증 — 2026-08-03 클러스터 전체 재구축
+
+Phase 11의 "새 namespace 또는 재구성 환경에서 대표 실험을 재실행한다" 요건은 계획된 실습이 아니라
+**실제 인시던트 복구 과정에서 검증됐다**. 2026-08-03 호스트 전원 손실로 `mesh-cp-01`의 etcd가 손상되어
+클러스터 전체(Kubernetes control-plane, Cilium, MetalLB, observability 스택, Istio Ambient, 애플리케이션
+Helm 릴리스)를 문서와 자동화만으로 처음부터 재구축했다:
+
+1. `kubeadm reset`(3노드) → `kubeadm init`(K8s v1.36.2, pod-cidr/service-cidr은 손상 전 apiserver/
+   controller-manager manifest에서 실측한 값 그대로 재사용) → worker 재join
+2. Cilium 1.19.6(kubeProxyReplacement, ipam=kubernetes) → Gateway API v1.4.1 + MetalLB 0.16.1 →
+   local-path-provisioner v0.0.36 → observability 스택(kube-prometheus-stack/Loki/Tempo/OTel
+   Collector) → `meshperf` Helm(no-mesh values로 우선 배포·검증) → Istio 1.29.6(istiod/istio-cni/
+   ztunnel) → `meshperf`를 ambient values로 전환
+3. 검증: 노드 3/3 Ready, Cilium 3/3 + Operator 2/2 + Hubble 1/1, MetalLB 1/1 + Speaker 3/3 +
+   GatewayClass 4종 Accepted, NetworkPolicy 11 KNP + 1 CNP(원래 배포와 동일한 개수), Prometheus
+   benchmark job 7개 `up=1`, ztunnel 3/3 + ambient 캡처 라벨 확인, **SYNC_CHAIN E2E(ping/3-hop
+   chain/3-target fan-out/4 KiB payload/3-task async) 전부 통과**, Python 실험 러너 dry-run
+   `COMPLETED`(무효화 요인 없음)로 측정 파이프라인 전체 정상 확인
+
+재구축 과정에서 실제로 겪은 문제(부트스트랩 순환, `cni.exclusive`, 콜드스타트 진단)는 §7의 19~22번
+항목에 기록했다. **이 재현은 계획된 "새 namespace 실험"보다 더 강한 증거다** — 통제된 반복이 아니라
+예정에 없던 실제 장애 상황에서, 이 프로젝트의 문서(버전/설정값)와 automation(Helm chart, Python
+runner)만으로 처음부터 다시 세워도 같은 결과 파이프라인이 재현된다는 것을 실증했다.
+
+전체 기록: [docs/CURRENT.md](docs/CURRENT.md)의 2026-08-03 인시던트 절 참고.
+
+### 8.2 manifest→raw→summary→graph→claim 링크 감사
+
+Phase 11 요건에 따라 이 문서(§6)의 정량 주장이 실제로 존재하는 데이터를 가리키는지 표본 감사했다.
+`experiments/compare_profiles.py` 산출물 SHA-256 해시(Phase 8: 9건, Phase 9: 1건, Phase 10: 1건)를
+현재 로컬 `results/`의 실제 파일과 다시 계산해 **11/11 전부 일치**함을 확인했고, Phase 4~7·9 canonical
+baseline의 원본 run 디렉터리(`repeat-XX`)가 삭제 없이 그대로 남아있음도 확인했다. 깨진 링크는
+발견되지 않았다.
+
+### 8.3 워크로드/시나리오별 선택 Matrix
+
+지금까지 측정한 모든 결과(§6)를 종합해, "어떤 상황에서 어떤 profile을 선택해야 하는가"로 뒤집어
+정리한 것이다. **이 Matrix는 이 프로젝트의 측정 범위(§8.4 적용 범위 참고) 안에서만 유효하다** — 특히
+노드당 2 vCPU라는 작은 규모, SYNC_CHAIN 3-hop 워크로드, 8/17/22 RPS 부하 범위를 벗어나는 환경에는
+그대로 적용할 수 없다.
+
+| 시나리오 / 요구사항 | 권장 | 근거 | 자원/기능 비용 | Rollback 기준 |
+|---|---|---|---|---|
+| **네트워크 바이트가 병목**(대역폭 제한, 대용량 payload, 높은 처리량) | **Ambient** | network bytes/request가 No-Mesh 대비 +1~2%뿐(Sidecar +49%, Waypoint +16~18%, §6.7) | ztunnel 노드당 공유(가벼움), 단 replica 확장 시 latency/메모리 증가 확인됨(§6.9, 아래 항목 참고) | network bytes가 예산을 초과하면 즉시 재평가 |
+| **mTLS/zero-trust가 필요하지만 비용에 민감** | **Ambient**(Sidecar에서 mTLS만 끄는 것은 효과 없음) | mTLS는 Sidecar 전체 오버헤드의 ~3%만 설명(§6.8) — Sidecar를 쓰면서 mTLS를 꺼도 거의 안 줄어든다. mTLS를 포함해도 Ambient가 훨씬 가볍다 | Ambient는 mTLS "무료"에 가까움(ztunnel이 이미 처리) | — |
+| **Pod당 메모리가 빠듯한 클러스터, 서비스당 replica가 많음** | **Ambient**(단, 아래 예외 확인) | Sidecar 메모리는 replica 1→4에서 120→173MiB(+44%, Pod마다 자기 몫)로 선형 증가. Ambient(ztunnel)는 15.8→16.1MiB(+2%, 방향성 연구 §6.6)로 거의 불변 | **예외**: 정식 반복측정(§6.9)에서는 ztunnel 메모리가 오히려 16.9→30.25MB(+79%)로 유의하게 늘었다(방향성 연구와 반대, 원인 미확정) — "Ambient는 replica가 늘어도 공짜"라고 안심하지 말고 실측 필요 | replica 확장 전후 ztunnel 메모리를 반드시 재측정 |
+| **replica가 많은 서비스의 latency 민감도가 높음** | **주의 — Ambient도 replica 증가에 따라 p99가 나빠진다** | 정식 측정(§6.9)에서 replica 1→4 시 p99 +20%(유의). 방향성 연구는 최대 +95%까지 관찰(신뢰구간 없음, 재현 안 됨) | Sidecar는 오히려 replica가 늘수록 p95가 소폭 개선(부하 분산 효과, §6.6) — 이 축만 보면 Sidecar가 유리할 수 있음 | p99가 SLA를 넘으면 replica 수를 낮추거나 Sidecar 재검토 |
+| **특정 서비스에만 L7 기능(재시도, circuit breaking, 헤더 기반 라우팅)이 필요, 전체는 불필요** | **Waypoint(선택 경로)** | network bytes가 Ambient와 Sidecar 사이(+16~18%, §6.5)로 L7 기능을 필요한 경로에만 추가하는 절충 | latency가 nominal/high에서 세 profile보다 일관되게 느림(near-saturation에서는 차이 소멸, 원인 미규명). **배포가 까다롭다** — 이 프로젝트에서 NetworkPolicy HBONE 포트(15008) 누락 버그를 2건 발견(§6.5) | Waypoint 도입 시 모든 waypoint-인접 NetworkPolicy에 HBONE 포트가 열려 있는지 반드시 확인 |
+| **일반 서비스 간 통신, L7 기능 불필요, latency에 극도로 민감** | **No-Mesh 또는 Ambient**(Sidecar 비교는 미확정) | 36개 cross-profile latency 비교 중 유의한 건 1건뿐이고 그마저 다음 부하 단계에서 재현 안 됨(§6.7) — 이 환경(p95 ≈5ms/p99 ≈8ms 미만 차이는 통계적으로 구분 불가)에서는 "Ambient가 No-Mesh보다 확실히 느리다"는 근거가 약하다 | Sidecar는 latency 정밀도 자체가 잘 수렴하지 않아(§6.3) 비교 신뢰도가 낮음 | — |
+| **Pod 장애(crash, 재시작)에 대한 자동 복구가 필요** | **모든 profile 동일**(Kubernetes 자체 기능) | pod-kill이 자동 복구되는 것은 Deployment의 self-healing이지 mesh profile의 기능이 아님(§6.10) — 이 프로젝트는 Ambient만 측정했지만 이 메커니즘 자체는 profile-agnostic | replica=1이면 fault 중 peak error rate가 크다(37.5~73.3%) — 가용성이 중요하면 replica ≥2 | — |
+| **의존 서비스의 latency 저하(전체 체인이 동시에 느려지는 상황)에 대한 내성** | **Ambient는 확인됨**(성공률 유지, latency만 비례 증가, §6.10). Sidecar/No-Mesh/Waypoint는 미확인 | chain 전체에 50ms/hop 지연을 걸어도 errorRate 0 유지, latency는 injected delay와 거의 정확히 비례 | cross-profile 비교를 하지 않아 "Ambient가 다른 profile보다 낫다"는 뜻은 아님 | — |
+
+### 8.4 적용 범위와 외삽 금지 조건
+
+이 Matrix와 §6의 모든 정량 결과는 **다음 조건을 벗어나면 그대로 적용할 수 없다**:
+
+- **하드웨어**: VMware Workstation 가상 3노드, worker 노드당 allocatable 2 vCPU. 이 환경은 p95
+  ≈5ms/p99 ≈8ms보다 작은 latency 차이를 통계적으로 구분하지 못한다 — 이보다 코어 수가 많거나 적은
+  환경에서는 mesh profile 간 오버헤드의 상대적 크기 자체가 달라질 수 있다.
+- **버전**: Kubernetes v1.36.2, Cilium 1.19.6, Istio 1.29.6(이 프로젝트 진행 중 1.30.3에서 재설치로
+  바뀜 — ADR-0028/0029/Phase 10에서 세 번 confound로 나타남), Java 25 + Spring Boot 4.1. 다른 버전
+  조합에서는 이 프로젝트가 발견한 특정 수치(예: mTLS가 오버헤드의 3%만 설명)가 재현되지 않을 수 있다.
+- **워크로드**: SYNC_CHAIN 3-hop, payload 1 KiB, hop delay 1ms(기본) 조건에서 측정했다. Fan-out,
+  Kafka 비동기 파이프라인, 대용량 payload 시나리오는 E2E 스모크만 확인했고 정식 반복측정하지 않았다 —
+  이 Matrix를 그런 워크로드에 그대로 적용할 수 없다.
+- **부하 범위**: 8/17/22 RPS(usable capacity 28 RPS 기준 10~30%)에서만 정식 측정했다. 이보다 훨씬
+  높은 부하(포화 근접~초과)나 훨씬 낮은 부하에서의 profile 간 상대적 순위는 이 데이터로 알 수 없다.
+- **replica 범위**: 1과 4 두 지점만 측정했다(§6.6, §6.9) — 2, 3, 5 이상에서의 거동은 두 지점 사이/
+  바깥을 선형 보간·외삽한 것이 아니라 실측하지 않은 영역이다.
+- **회복탄력성 범위**: pod-kill과 chain-wide delay 두 fault, Ambient profile 하나만 측정했다(§6.10).
+  Network delay/loss, Kafka worker 중단, hop 단위로 격리된 fault, 그리고 Sidecar/No-Mesh/Waypoint의
+  fault 반응은 측정하지 않았다 — "Ambient가 장애에 강하다"는 일반적 결론으로 확대해석하면 안 된다.
+- **측정되지 않은 근본 원인들**: Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘,
+  Ambient replica 확장 시 ztunnel 메모리가 방향성 연구와 반대로 증가한 원인 — 둘 다 이 프로젝트
+  범위에서는 규명하지 못했다.
 
 ---
 
@@ -751,15 +899,66 @@ confound) 중 무엇이 원인인지는 이 데이터만으로 가릴 수 없어
 
 ## 10. 배운 점 / 회고
 
-`[TODO: 프로젝트 완료 후 작성 — 벤치마크 설계, 통계적 정지 규칙, 온프레미스 Kubernetes 운영, Java 성능
-분석 관점에서 얻은 인사이트를 정리]`
+**벤치마크 설계**: "3회 반복"처럼 임의로 정한 기준은 처음엔 합리적으로 보여도, 실제로 돌려보면 이 환경
+고유의 특성(작은 절대 latency, 3-hop 변동성)과 충돌한다는 걸 반복해서 겪었다. ADR-0023(절대·상대 혼합
+정밀도)과 §6.9(방향성 연구 vs 정식 반복의 크기 차이)는 같은 교훈을 두 번 다른 방식으로 확인해준
+셈이다 — **"몇 번 반복했다"가 아니라 "신뢰구간이 실제로 무엇을 감지할 수 있는가"를 먼저 계산해야
+한다.** 방향성 연구(3회)는 "뭔가 있다"를 정확히 잡아내는 데는 유용했지만, 크기나 부호(ztunnel 메모리)
+까지 믿는 순간 틀렸다.
+
+**통계적 정지 규칙**: 이 프로젝트에서 가장 자주 나온 판정은 `STOP_PRECISION_REACHED`가 아니라
+`INCONCLUSIVE_MAX_RUNS`였다 — Sidecar는 9개 조건 중 세 조건 모두, Waypoint도 세 조건 모두 이렇게
+끝났다. 처음엔 "실패"처럼 느껴졌지만, 돌이켜보면 이것 자체가 **"이 환경에서는 이 정도 크기의 차이를
+구분할 수 없다"는 정직한 정보**였다 — 억지로 통과시키거나 반복 횟수를 무한정 늘리는 대신 상한에서
+멈추고 그 사실 자체를 결론에 포함시키는 것이 옳은 태도였다.
+
+**온프레미스 Kubernetes 운영**: 클라우드 관리형 서비스라면 겪지 않았을 문제(kube-proxy 없는 클러스터의
+Cilium 부트스트랩 순환, `cni.exclusive` 설정이 적용되려면 재시작이 필요하다는 것, etcd가 정전에 얼마나
+취약한지)를 직접 겪었다. 특히 2026-08-03 인시던트는 "측정 결과와 인프라 상태는 분리해서 관리해야
+한다"는 원칙(git에는 Evidence만, `results/`는 로컬 전용)이 실제로 재난 복구 상황에서 왜 중요한지를
+증명했다 — etcd가 완전히 날아가도 몇 주치 측정 결과와 결론은 전혀 흔들리지 않았다.
+
+**Java 성능 분석**: JVM 콜드스타트(26~30초)가 pod-kill recovery time의 지배적 요인이라는 걸 발견한
+것(§6.10)은 "mesh profile 비교"라는 원래 목적과는 결이 다르지만, 실무적으로는 더 실행 가능한
+인사이트였다 — 회복탄력성을 개선하려면 mesh 설정보다 **JVM 시작 시간 자체**(native image, CDS
+아카이브, readiness probe 튜닝)를 먼저 봐야 한다는 뜻이다.
+
+**가장 반복적으로 나온 실수 패턴**: "재현 실험을 통과했다"를 "다른 원인을 전부 배제했다"로 착각한 것
+(§6.5의 Waypoint 오판, 18번 항목)과 "설정을 바꿨다"를 "그 설정이 적용됐다"로 착각한 것(§7의 21번,
+Cilium daemonset 재시작 누락)이 이 프로젝트에서 최소 두 번씩 나왔다. 둘 다 **"관찰된 현상"과 "그
+현상에 대한 해석" 사이에 검증되지 않은 가정 하나가 숨어있었다**는 공통점이 있다 — 다음 프로젝트에서는
+이 두 가지 실수 패턴을 체크리스트로 만들어 명시적으로 확인하는 습관을 들일 만하다.
 
 ---
 
 ## 11. 결론
 
-`[TODO: Phase 11 완료 후 작성 — 4개 profile의 성능/자원/회복탄력성 비교 요약, 워크로드 유형별 선택 권고,
-검증/기각된 가설 목록, 프로젝트 전체의 한계와 적용 범위]`
+**4개 profile을 하나의 문장으로 요약하면**: No-Mesh는 기준점, **Ambient는 이 프로젝트가 측정한 범위
+안에서 가장 균형 잡힌 선택**(network bytes +1~2%, latency는 No-Mesh와 통계적으로 구분 안 됨, mTLS
+사실상 무료)이지만 **replica 확장에는 무비용이 아니다**(p99 +20%, ztunnel 메모리 +79%, 둘 다 정식
+신뢰구간으로 확인됨). Sidecar는 network bytes(+49%)와 Pod당 메모리(replica 비례 증가)가 뚜렷한 대가이고
+latency 정밀도 자체가 잘 수렴하지 않아 비교 신뢰도가 낮다. Waypoint는 선택적 L7이 필요할 때 Ambient와
+Sidecar 사이의 절충안이지만 배포가 까다롭고(NetworkPolicy 버그 2건 실제 발견) 특정 부하 구간에서
+latency 손해가 있다. 회복탄력성 측면에서는 pod-kill 자동 복구와 chain-wide latency 스트레스 아래에서의
+graceful degradation을 Ambient에서 확인했지만, 이건 Kubernetes 자체 기능(pod-kill)과 Ambient 고유
+특성(latency 스트레스) 각각의 결과이지 "Ambient가 장애에 제일 강하다"는 cross-profile 결론이 아니다.
+
+**워크로드 유형별 선택 권고**는 §8.3(선택 Matrix)에 8개 시나리오로 정리했다 — 요약하면 **"네트워크
+비용과 mTLS가 중요하면 Ambient, 특정 경로에만 L7이 필요하면 Waypoint(배포 주의), replica가 많은
+서비스는 두 profile 모두 확장 비용을 실측하라"**는 것이다.
+
+**가설 검증 결과**(§2 상세): 6개 중 1개 확인(mesh별 비용 확장 형태 차이), 2개 부분 확인(Waypoint
+병목 가능성 — replica 축 미검증, 선택적 경로 비용 절감 — telemetry sampling 축 미검증), 3개는
+이번 범위에서 아예 측정하지 않음(retry amplification, retry-owner 개선, HPA/queue-lag) — 모두
+장애 전파·복구의 소유권을 바꾸는 아키텍처 변경이라는 공통점이 있어 후속 프로젝트로 남긴다.
+
+**프로젝트 전체의 한계와 적용 범위**(§8.4 상세): VMware 3노드(노드당 2 vCPU), Kubernetes
+v1.36.2/Cilium 1.19.6/Istio 1.29.6(진행 중 1.30.3→1.29.6 재설치가 있었고 이게 세 번 confound로
+드러남), SYNC_CHAIN 3-hop 워크로드, 8/17/22 RPS 부하, replica 1/4 두 지점, fault는 pod-kill/chain-delay
+두 종류·Ambient 하나의 profile로 측정했다는 것을 벗어나면 이 결론들을 그대로 적용할 수 없다. 이 범위
+안에서는, **Evidence 없는 결론을 내지 않는다는 원칙을 프로젝트 시작부터 끝(정전 복구 포함)까지
+일관되게 지켰다**는 것이 가장 중요한 산출물이다 — 개별 수치보다, "무엇을 확인했고 무엇을 확인하지
+못했는지"를 숨기지 않고 구분하는 방법론 자체가 이 프로젝트의 결론이다.
 
 ---
 
@@ -791,6 +990,7 @@ confound) 중 무엇이 원인인지는 이 데이터만으로 가릴 수 없어
 | Phase 9 Ambient replica-scaling 정식 실험 결정 | [ADR-0029](docs/decisions/0029-phase9-ambient-replica-scaling-formal-experiment.md) |
 | Phase 9 Ambient replica-scaling 정식 실험 Evidence | [docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md](docs/evidence/performance/2026-08-02-phase9-ambient-replica-scaling-formal.md) |
 | Phase 10 회복탄력성 범위 결정 | [ADR-0030](docs/decisions/0030-phase10-resilience-scope.md) |
+| Phase 10 회복탄력성 결과 Evidence | [docs/evidence/performance/2026-08-03-phase10-resilience-results.md](docs/evidence/performance/2026-08-03-phase10-resilience-results.md) |
 | 현재 체크포인트 | [docs/CURRENT.md](docs/CURRENT.md) |
 | Phase 전체 체크리스트 | [docs/checkpoints/phase-checklists.md](docs/checkpoints/phase-checklists.md) |
 | 저장소 | https://github.com/0206pdh/msa-servicemesh |

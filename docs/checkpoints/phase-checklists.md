@@ -147,8 +147,14 @@
 
 ## Phase 11 — 최종화
 
-- [ ] workload별 선택 Matrix
-- [ ] raw→summary→graph→claim 연결
-- [ ] 새 환경 대표 재현
-- [ ] 적용 범위와 외삽 금지 조건
-- [ ] 최종 Evidence와 보고서 validated
+- [x] workload별 선택 Matrix (`PORTFOLIO.md` §8.3 — 시나리오/요구사항 8개 × 권장 profile/근거/비용/
+      rollback 기준)
+- [x] raw→summary→graph→claim 연결 (`PORTFOLIO.md` §8.2 — compare_profiles.py 산출물 SHA-256 11건
+      전부 재계산 일치, canonical baseline run 디렉터리 존재 확인, 깨진 링크 없음)
+- [x] 새 환경 대표 재현 (`PORTFOLIO.md` §8.1 — 2026-08-03 etcd 손상으로 인한 실제 클러스터 전체
+      재구축이 계획된 재현 실습보다 강한 증거로 이 요건을 충족: 문서/자동화만으로 재구축 후 SYNC_CHAIN
+      E2E + 실험 러너 dry-run 정상 확인)
+- [x] 적용 범위와 외삽 금지 조건 (`PORTFOLIO.md` §8.4 — 하드웨어/버전/워크로드/부하/replica/
+      회복탄력성 범위와 미규명 원인 명시)
+- [x] 최종 Evidence와 보고서 validated (`PORTFOLIO.md` 전체 갱신: Phase 10 결과, 가설별 최종 결과,
+      선택 Matrix, 배운 점, 결론 — 남은 TODO 없음)
