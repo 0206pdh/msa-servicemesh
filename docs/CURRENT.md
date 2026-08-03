@@ -5,14 +5,24 @@
 ## 현재 위치
 
 - Project: Mesh Performance Lab
-- Overall Phase: **Phase 9 완료(2026-08-02)** — 실험 1(Sidecar mTLS DISABLE, 가설 기각) + 실험 2(Ambient
-  replica 1 vs 4, p99 저하 방향 확인되나 크기는 방향성 연구와 불일치, ztunnel 메모리는 반대 방향으로
-  유의) + 실험 3(Phase 8 재확인으로 충분, 신규 실험 불필요)으로 종료. Phase 10(회복탄력성) 설계 완료
-  (ADR-0030), 착수 예정
-- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6). orchestrator-service는 Phase 9 실험
-  종료 후 1 replica로 원복 예정
-- Status: phase-9-done-phase-10-ready
-- Last updated: 2026-08-02
+- Overall Phase: Phase 9 완료. **Phase 10 데이터 수집 완료, Evidence 작성 전 단계**:
+  - pod-kill(`experiments/resilience.py`, orchestrator-service): 10/10회 완료(2026-08-02) —
+    `results/phase10-pod-kill-orchestrator/repeat-01~10`, recovery 29.9~39.9초, peakErrorRate 38~73%
+  - chain-wide delay(`hop_delay_ms=50`, nominal 8 RPS): 3세션×5블록=15/15회 완료(2026-08-03) —
+    `results/phase10-chain-delay-50ms*`, state.json 최종 `SESSION_COMPLETED`이나 `cpuCoreSecondsPerRequest`
+    정밀도는 15회 상한에도 미수렴(`observedRelative` 10.6% vs 기준 5%/절대 0.01) — 기존 phase들의
+    `INCONCLUSIVE_MAX_RUNS`와 같은 패턴, 재측정 불필요하고 이 한계를 명시한 채 Evidence로 보고
+  - 둘 다 정전 **이전에** 완료됨 — 아래 인시던트와 무관하게 데이터 자체는 유효함
+- **2026-08-03 인시던트**: 호스트 전원 손실로 VM 3대 비정상 종료 → `mesh-cp-01`의 etcd 데이터
+  손상(bbolt backend consistent-index 손실, snapshot 복구용 `.snap.db` 부재로 panic). 사용자 승인 하에
+  `/var/lib/etcd` 백업(`mesh-cp-01:/tmp/etcd-backup-20260803T015518Z.tar.gz`) 후 kubeadm
+  reset+init으로 클러스터 전체 재부트스트랩, Cilium 1.19.6부터 Ambient(Istio 1.29.6)까지 전체 스택
+  재설치 완료(2026-08-03). 측정 결과(`results/`, git 커밋)는 클러스터와 독립적으로 보존되어 영향 없음.
+  재구축 상세는 아래 "마지막 검증" 참고
+- Infrastructure Step: 클러스터는 순수 Ambient 상태(Istio 1.29.6, 재설치본). orchestrator-service
+  1 replica
+- Status: phase-10-data-collected-evidence-pending
+- Last updated: 2026-08-03
 
 ## 완료된 기준점
 
@@ -145,13 +155,12 @@
 
 ## 다음 작업
 
-1. **Phase 10 착수(ADR-0030)**: Pod kill(orchestrator-service, `experiments/resilience.py` 구현 완료)과
-   chain-wide delay(`hop_delay_ms` 파라미터 구현 완료) 두 fault로 범위를 좁혀 정식 반복측정을 시작한다.
-2. Pod-kill 실험 전에 orchestrator-service를 1 replica로 원복하고(Phase 9 실험 2가 4로 바꿔둔 상태),
-   클러스터가 다른 canonical 측정과 같은 조건인지 재확인한다.
-3. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘과 ztunnel 메모리가 replica 확장에
+1. **Phase 10 Evidence 작성**: pod-kill(10/10) + chain-wide delay(15/15, `SESSION_COMPLETED`이나
+   cpuCoreSecondsPerRequest 정밀도 미수렴)를 분석해 `docs/evidence/performance/`에 결과 문서를 쓰고
+   ADR-0030에 결과를 반영한 뒤 Phase 10을 종료한다. 데이터는 이미 `results/`에 있음 — 재측정 불필요.
+2. Waypoint의 near-saturation에서 latency 차이가 사라지는 메커니즘과 ztunnel 메모리가 replica 확장에
    따라 왜 늘어나는지(방향성 연구와 반대 결과)는 둘 다 미규명 — Phase 10/11 이후 후속 과제로 기록한다.
-4. Phase 10 완료 후 Phase 11(최종화): 선택 Matrix, 새 환경 재현, 최종 보고서.
+3. Phase 10 Evidence 완료 후 Phase 11(최종화): 선택 Matrix, 새 환경 재현, 최종 보고서.
 
 ## 현재 한계
 
@@ -260,6 +269,30 @@
 - Phase 9 실험 2: replica=4 10회 `STOP_PRECISION_REACHED`, replica1 vs replica4 비교 완료
 - Python 전체 unittest: 43 passed (resilience.py 테스트 4개, hop_delay_ms 테스트 2개 포함)
 - Git: Phase 10 스코프(ADR-0030) + resilience.py `5f14c6d`, Phase 9 실험 2 Evidence 커밋 예정
+- Phase 10 pod-kill 정식측정: 10/10회 완료, recovery 29.9~39.9초(2가지 클러스터로 갈림), peakErrorRate
+  38~73%
+- Phase 10 chain-delay(50ms, nominal) 정식측정: 3세션(5블록×3)=15/15회 완료, `SESSION_COMPLETED`,
+  cpuCoreSecondsPerRequest만 정밀도 미수렴(observedRelative 10.6%, 기준 5%/0.01)
+- Git: Unicode 디코드 크래시 수정 `07c2283`, error-rate 쿼리/k6 summary 필드 수정 `ecb9e83`
+- **2026-08-03 인시던트 복구**: 정전으로 손상된 `mesh-cp-01` etcd를 kubeadm reset+init으로
+  재부트스트랩(K8s v1.36.2, pod-cidr 10.244.0.0/16, service-cidr 10.96.0.0/12 — 손상 전 apiserver/
+  controller-manager manifest에서 실측), Cilium 1.19.6(kubeProxyReplacement, ipam=kubernetes,
+  k8sServiceHost/Port 명시 필요 — 없으면 ClusterIP 부트스트랩 순환 문제로 cilium 자체가 안 뜸) 재설치,
+  Gateway API v1.4.1 + MetalLB 0.16.1 + local-path-provisioner v0.0.36 재설치, observability
+  스택(kube-prometheus-stack/Loki/Tempo/OTel Collector) 재설치, `meshperf` Helm(no-mesh→ambient)
+  재배포, Istio 1.29.6(istiod/istio-cni/ztunnel) 재설치 — istio-cni는 Cilium이 `cni.exclusive`
+  기본값으로 conflist를 계속 덮어써서 처음엔 안 떴음, `cni.exclusive=false` 설정 후 Cilium daemonset
+  재시작해서 해결
+- 재구축 검증: 노드 3/3 Ready, Cilium 3/3 + Operator 2/2 + Hubble Relay/UI 1/1, MetalLB Controller
+  1/1 + Speaker 3/3 + GatewayClass 4종 Accepted, NetworkPolicy 11 KNP + 1 CNP, Prometheus benchmark
+  job 7개 `up=1`, ztunnel 3/3 + `ambient.istio.io/redirection: enabled` 확인, SYNC_CHAIN E2E(ping/
+  chain/fanout/payload/async) 전부 통과(X-Correlation-Id/X-Experiment-Run-Id 헤더 필수 — 없으면
+  내부 hop 호출에서 400/500), orchestrator-service 1 replica, Python 실험 러너 dry-run
+  `COMPLETED`/invalidatingFactors 없음으로 측정 파이프라인 전체 복구 확인
+- kafka/producer/worker의 Ambient HBONE 타임아웃은 재발(기존에도 문서화된 SYNC_CHAIN 범위 밖 한계,
+  재구축으로 인한 새 문제 아님)
+- etcd 백업 보존 위치: `mesh-cp-01:/tmp/etcd-backup-20260803T015518Z.tar.gz`(복구 실패 시 참고용,
+  손상된 데이터라 재사용 불가 — 새 etcd는 완전히 새로 부트스트랩됨)
 
 ## 재개 절차
 
